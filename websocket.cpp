@@ -67,7 +67,7 @@ void Websocket::onSocketTextMessageReceived(QString message) {
 
     switch (payload["op"].toInt()) {
     case opcodes::DISPATCH: {
-        qDebug() << "[Recv] Opcode 0 DISPATCH";
+        qDebug() << "[Recv] Opcode 0 DISPATCH -" << payload ["t"].toString();
         sequenceNumber = payload["s"].toInt();
 
         if (payload["t"].toString() == "READY") {
@@ -81,6 +81,8 @@ void Websocket::onSocketTextMessageReceived(QString message) {
             emit MESSAGE_CREATE(payload["d"].toObject());
         } else if (payload["t"].toString() == "INTERACTION_CREATE") {
             emit INTERACTION_CREATE(payload["d"].toObject());
+        } else if (payload["t"].toString() == "GUILD_MEMBER_UPDATE") {
+            emit GUILD_MEMBER_UPDATE(payload["d"].toObject());
         }
         break;
     }

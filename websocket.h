@@ -61,6 +61,7 @@ signals:
     void GUILD_CREATE(QJsonObject);
     void MESSAGE_CREATE(QJsonObject);
     void INTERACTION_CREATE(QJsonObject);
+    void GUILD_MEMBER_UPDATE(QJsonObject);
 };
 
 #endif // WEBSOCKET_H

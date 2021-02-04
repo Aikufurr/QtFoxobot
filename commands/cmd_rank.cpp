@@ -43,7 +43,7 @@ cmd_rank::cmd_rank(Client *client, Client::interaction_t *interaction, DbManager
         fields.push_back(field);
     } else {
         Client::embed_field_t field;
-        field.name = QString("To get to %1's rank of %2, %3 need %4 more message%6").arg(behind_member.nick.isEmpty() ? behind_member.user.username : behind_member.nick, QString::number(rank["behind_position"].toInt()), member.user.id == interaction->member.user.id ? "you" : "they", QString::number((rank["behind_rank"].toInt()-rank["rank"].toInt())+1), rank["rank"].toInt() != 1 ? "s" : "");
+        field.name = QString("To get to %1's rank of %2, %3 need %4 more message%6").arg(behind_member.nick.isEmpty() ? behind_member.user.username : behind_member.nick, QString::number(rank["behind_position"].toInt()), member.user.id == interaction->member.user.id ? "you" : "they", QString::number((rank["behind_rank"].toInt()-rank["rank"].toInt())+1), ((rank["behind_rank"].toInt()-rank["rank"].toInt())+1) != 1 ? "s" : "");
         field.value = " ‍ ";
         field.is_inline = false;
         fields.push_back(field);

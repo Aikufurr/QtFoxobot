@@ -3,6 +3,7 @@
 
 // Commands
 #include "commands/cmd_aesthetics.h"
+#include "commands/cmd_coinflip.h"
 #include "commands/cmd_eight_ball.h"
 #include "commands/cmd_hello.h"
 #include "commands/cmd_leaderboard.h"
@@ -48,6 +49,8 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
 
     if (interaction->command == "aesthetics") {
         new cmd_aesthetics(client, interaction);
+    } else if (interaction->command == "coinflip") {
+        new cmd_coinflip(client, interaction);
     } else if (interaction->command == "8ball") {
         new cmd_eight_ball(client, interaction);
     } else if (interaction->command == "hello") {
@@ -62,6 +65,28 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
 void foxobot::create_slash_commands() {
     qDebug() << "Creating slash commands globally?" << (application_id != dev_application_id);
 
+    {
+        QJsonObject command;
+        command.insert("name", "aesthetics");
+        command.insert("description", "Takes your text and makes it 𝒶𝑒𝓈𝓉𝒽𝑒𝓉𝒾𝒸");
+        QJsonArray options;
+        {
+            QJsonObject option;
+            option.insert("name", "text");
+            option.insert("description", "Enter your text to make 𝒶𝑒𝓈𝓉𝒽𝑒𝓉𝒾𝒸");
+            option.insert("required", true);
+            option.insert("type", applicationCommandOptionType::STRING);
+            options.push_back(option);
+        }
+        command.insert("options", options);
+        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+    }
+    {
+        QJsonObject command;
+        command.insert("name", "coinflip");
+        command.insert("description", "Flip a coin");
+        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+    }
     {
         QJsonObject command;
         command.insert("name", "8ball");

@@ -231,6 +231,7 @@ private slots:
     void GUILD_CREATE(QJsonObject guild);
     void MESSAGE_CREATE(QJsonObject message);
     void INTERACTION_CREATE(QJsonObject interaction);
+    void GUILD_MEMBER_UPDATE(QJsonObject member);
 //    void replyFinished(QNetworkReply *);
 
 signals:

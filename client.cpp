@@ -14,6 +14,7 @@ void Client::login(QString _token) {
     connect(websocket, SIGNAL(GUILD_CREATE(QJsonObject)), this, SLOT(GUILD_CREATE(QJsonObject)));
     connect(websocket, SIGNAL(MESSAGE_CREATE(QJsonObject)), this, SLOT(MESSAGE_CREATE(QJsonObject)));
     connect(websocket, SIGNAL(INTERACTION_CREATE(QJsonObject)), this, SLOT(INTERACTION_CREATE(QJsonObject)));
+    connect(websocket, SIGNAL(GUILD_MEMBER_UPDATE(QJsonObject)), this, SLOT(GUILD_MEMBER_UPDATE(QJsonObject)));
 
     websocket->start();
 }
@@ -455,6 +456,40 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
     }
 }
 
+
+void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
+    Client::member_t member;
+    Client::user_t user;
+    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
+
+    user.avatar = json_member["user"].toObject()["avatar"].toString();
+    user.discriminator = json_member["user"].toObject()["discriminator"].toString();
+    user.id = json_member["user"].toObject()["id"].toString();
+    user.flags = json_member["user"].toObject()["public_flags"].toInt();
+    user.username = json_member["user"].toObject()["username"].toString();
+    user.bot = json_member["user"].toObject()["bot"].toBool();
+    users[user.id] = user;
+    member.user = user;
+    member.nick = json_member["nick"].toString();
+
+    QList<Client::roles_t> roles;
+    foreach(const QJsonValue &value, json_member["roles"].toArray()) {
+        QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
+        for ( ; it != guild.roles.constEnd(); ++it ) {
+            const Client::roles_t &role = *it;
+
+            if (value.toString() == role.id) {
+                roles.push_back(role);
+            }
+        }
+    }
+    member.roles = roles;
+    member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
+    member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
+
+    guild.members[user.id] = member;
+    members[user.id] = member;
+}
 
 void Client::MESSAGE_CREATE(QJsonObject json_message) {
     Client::message_t message;
