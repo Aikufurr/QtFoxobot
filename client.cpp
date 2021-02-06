@@ -40,15 +40,20 @@ void Client::change_presence(QString name, int type, QString status) {
     websocket->m_webSocket.sendTextMessage(jDocument.toJson(QJsonDocument::Compact));
 }
 
+
 void Client::create_slash_command(QJsonObject command, QString guild_id) {
     QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
 
     QString urlString = QString("https://discord.com/api/v8/applications/%1").arg(application_id);
 
-    if (guild_id.isEmpty()) {
-        urlString += QString("/commands");
-    } else {
+    if (command["name"].toString() == "close" && !guild_id.isEmpty()) {
         urlString += QString("/guilds/%1/commands").arg(guild_id);
+    } else {
+        if (guild_id.isEmpty()) {
+            urlString += QString("/commands");
+        } else {
+            urlString += QString("/guilds/%1/commands").arg(guild_id);
+        }
     }
 
     const QUrl url(urlString);
@@ -72,6 +77,7 @@ void Client::create_slash_command(QJsonObject command, QString guild_id) {
             qDebug() << err;
         }
         reply->deleteLater();
+        delete mgr;
     });
 }
 
@@ -100,9 +106,9 @@ void Client::getGateway() {
             qDebug() << err;
         }
         reply->deleteLater();
+        delete mgr;
     });
 }
-
 
 void Client::send_message(QString channel_id, QString content) {
     embed_t embed;
@@ -110,6 +116,7 @@ void Client::send_message(QString channel_id, QString content) {
 }
 
 void Client::send_message(QString channel_id, QString content, embed_t embed) {
+    qDebug() << "Sending message to" << channel_id;
     //    QNetworkAccessManager * manager = new QNetworkAccessManager(this);
 
     //    QUrl url(QString("https://discord.com/api/channels/%1/messages").arg(channel_id));
@@ -176,7 +183,7 @@ void Client::send_message(QString channel_id, QString content, embed_t embed) {
             json_embed.insert("fields", fields);
         }
         obj.insert("embed", json_embed);
-//        qDebug() << obj;
+        //        qDebug() << obj;
     }
     QJsonDocument doc(obj);
     QByteArray data = doc.toJson();
@@ -194,6 +201,7 @@ void Client::send_message(QString channel_id, QString content, embed_t embed) {
             qDebug() << err;
         }
         reply->deleteLater();
+        delete mgr;
     });
 }
 //void Client::replyFinished(QNetworkReply *rep)
@@ -216,7 +224,7 @@ void Client::READY(QJsonObject response) {
     user.username = userResponse["username"].toString();
     user.verified = userResponse["verified"].toBool();
     users[user.id] = user;
-    qDebug() << "{Client::ready} Loaded";
+    qDebug() << "{Client::ready} Loaded" << user.username;
     emit ready(user.username);
 }
 
@@ -414,10 +422,10 @@ Client::user_t Client::getUser(QString user_id) {
 }
 
 Client::member_t Client::getMember(QString user_id, QString guild_id) {
-    if (members.contains(user_id)) {
-        return members[user_id];
+    Client::guild_t guild = this->getGuild(guild_id);
+    if (guild.members.contains(user_id)) {
+        return guild.members[user_id];
     } else {
-        Client::guild_t guild = this->getGuild(guild_id);
         Client::user_t user = this->getUser(user_id);
 
         QNetworkAccessManager NAManager;
@@ -451,14 +459,13 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
         member.premium_since = QDateTime::fromString(payload["premium_since"].toString(), Qt::ISODate);
 
         guild.members[user.id] = member;
-        members[user.id] = member;
         return member;
     }
 }
 
 
 void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
-    Client::member_t member;
+    Client::member_t new_member;
     Client::user_t user;
     Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
 
@@ -469,8 +476,8 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
     user.username = json_member["user"].toObject()["username"].toString();
     user.bot = json_member["user"].toObject()["bot"].toBool();
     users[user.id] = user;
-    member.user = user;
-    member.nick = json_member["nick"].toString();
+    new_member.user = user;
+    new_member.nick = json_member["nick"].toString();
 
     QList<Client::roles_t> roles;
     foreach(const QJsonValue &value, json_member["roles"].toArray()) {
@@ -483,12 +490,13 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
             }
         }
     }
-    member.roles = roles;
-    member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
-    member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
+    new_member.roles = roles;
+    new_member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
+    new_member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
 
-    guild.members[user.id] = member;
-    members[user.id] = member;
+    Client::member_t old_member = guild.members[user.id];
+    guild.members[user.id] = new_member;
+    emit guild_member_update(&old_member, &new_member);
 }
 
 void Client::MESSAGE_CREATE(QJsonObject json_message) {

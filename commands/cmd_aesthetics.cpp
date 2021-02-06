@@ -28,6 +28,7 @@ cmd_aesthetics::cmd_aesthetics(Client *client, Client::interaction_t *interactio
     characterMap['x'] = "𝓍";
     characterMap['y'] = "𝓎";
     characterMap['z'] = "𝓏";
+    characterMap[' '] = " ";
 
     QList<QString> words = interaction->options["text"].split("", QString::SkipEmptyParts);
     QString output = QString("<@%1>, ").arg(interaction->member.user.id);

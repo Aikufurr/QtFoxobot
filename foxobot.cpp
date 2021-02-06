@@ -48,22 +48,41 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
     qDebug() << "Interaction message from" << interaction->member.user.username << ":" << interaction->command;
 
     if (interaction->command == "aesthetics") {
-        new cmd_aesthetics(client, interaction);
+        cmd_aesthetics *cmd = new cmd_aesthetics(client, interaction);
+        delete cmd;
     } else if (interaction->command == "coinflip") {
-        new cmd_coinflip(client, interaction);
+        cmd_coinflip *cmd = new cmd_coinflip(client, interaction);
+        delete cmd;
     } else if (interaction->command == "8ball") {
-        new cmd_eight_ball(client, interaction);
+        cmd_eight_ball *cmd = new cmd_eight_ball(client, interaction);
+        delete cmd;
     } else if (interaction->command == "hello") {
-        new cmd_hello(client, interaction);
+        cmd_hello *cmd = new cmd_hello(client, interaction);
+        delete cmd;
     } else if (interaction->command == "leaderboard") {
-        new cmd_leaderboard(client, interaction, dbManager);
+        cmd_leaderboard *cmd = new cmd_leaderboard(client, interaction, dbManager);
+        delete cmd;
     } else if (interaction->command == "rank") {
-        new cmd_rank(client, interaction, dbManager);
+        cmd_rank *cmd = new cmd_rank(client, interaction, dbManager);
+        delete cmd;
+    } else if (interaction->command == "close") {
+        client->send_message(interaction->channel_id, "Goodbye.");
+        delete dbManager;
+        delete client;
+        QCoreApplication::quit();
     }
 }
 
 void foxobot::create_slash_commands() {
     qDebug() << "Creating slash commands globally?" << (application_id != dev_application_id);
+
+
+    {
+        QJsonObject command;
+        command.insert("name", "close");
+        command.insert("description", "Stop the bot");
+        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+    }
 
     {
         QJsonObject command;
@@ -146,6 +165,14 @@ void foxobot::create_slash_commands() {
                 choices.push_back(choice);
             }
             option.insert("choices", choices);
+            options.push_back(option);
+        }
+        {
+            QJsonObject option;
+            option.insert("name", "custom");
+            option.insert("description", "Choose yourself how many results to show (1-20)");
+            option.insert("required", false);
+            option.insert("type", applicationCommandOptionType::INTEGER);
             options.push_back(option);
         }
         command.insert("options", options);

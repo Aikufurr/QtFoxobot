@@ -4,14 +4,24 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
     Client::guild_t guild = client->getGuild(interaction->guild_id);
     int amount = 10;
     if (interaction->options.size() > 0) {
-        amount = interaction->options["amount"].toInt();
+        if (interaction->options.contains("custom")) {
+            amount = interaction->options["custom"].toInt();
+            if (amount < 1) {
+                amount = 1;
+            }
+            if (amount > 20) {
+                amount = 20;
+            }
+        } else {
+            amount = interaction->options["amount"].toInt();
+        }
     }
 
     QJsonArray leaderboard = dbManager->rank_leaderboard(interaction->guild_id, amount);
 
     Client::embed_t embed;
     embed.title = QString("%1's Leaderboard").arg(guild.name);
-    embed.description = QString("The top %1 members").arg(amount);
+    embed.description = QString("The top %1 member%2").arg(QString::number(amount), amount != 1 ? "s" : "");
     embed.colour = 16757760; // FFB400 - Orange
 
     QList<Client::embed_field_t> fields;

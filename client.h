@@ -224,7 +224,6 @@ private:
     Websocket *websocket = new Websocket("");
     QHash<QString, guild_t> guilds;
     QHash<QString, user_t> users;
-    QHash<QString, member_t> members;
 
 private slots:
     void READY(QJsonObject response);
@@ -237,7 +236,8 @@ private slots:
 signals:
     void ready(QString);
     void message_create(Client::message_t);
-    void interaction_create(Client::interaction_t *);
+    void interaction_create(Client::interaction_t *interaction);
+    void guild_member_update(Client::member_t *old_member, Client::member_t *new_member);
 };
 
 #endif // CLIENT_H

@@ -67,7 +67,7 @@ void Websocket::onSocketTextMessageReceived(QString message) {
 
     switch (payload["op"].toInt()) {
     case opcodes::DISPATCH: {
-        qDebug() << "[Recv] Opcode 0 DISPATCH -" << payload ["t"].toString();
+        qDebug() << "[Recv] Opcode 0 DISPATCH -" << payload["t"].toString();
         sequenceNumber = payload["s"].toInt();
 
         if (payload["t"].toString() == "READY") {
