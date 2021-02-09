@@ -1,4 +1,4 @@
-QT += core websockets sql
+QT += core websockets sql charts network
 QT -= gui
 
 CONFIG += c++11 console
@@ -16,6 +16,7 @@ SOURCES += \
         commands/cmd_hello.cpp \
         commands/cmd_leaderboard.cpp \
         commands/cmd_rank.cpp \
+        commands/cmd_settings.cpp \
         dbmanager.cpp \
         foxobot.cpp \
         main.cpp \
@@ -34,6 +35,7 @@ HEADERS += \
     commands/cmd_hello.h \
     commands/cmd_leaderboard.h \
     commands/cmd_rank.h \
+    commands/cmd_settings.h \
     dbmanager.h \
     foxobot.h \
     websocket.h

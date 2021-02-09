@@ -21,16 +21,19 @@ foxobot::foxobot() {
         qDebug() << "No Token and or application_id present";
         return;
     }
-    client = new Client(application_id);
+    client = new Client(application_id, dbManager);
 
     client->login(token);
+
     this->create_slash_commands();
     //    client->getGateway();
 
     connect(client, SIGNAL(ready(QString)), this, SLOT(ready(QString)));
     connect(client, SIGNAL(message_create(Client::message_t)), this, SLOT(message_create(Client::message_t)));
     connect(client, SIGNAL(interaction_create(Client::interaction_t *)), this, SLOT(interaction_create(Client::interaction_t *)));
+    connect(client, SIGNAL(guild_member_update(Client::member_t, Client::member_t *)), this, SLOT(guild_member_update(Client::member_t, Client::member_t *)));
 }
+
 
 void foxobot::ready(QString name) {
     qDebug() << "Logged in as" << name;
@@ -81,7 +84,7 @@ void foxobot::create_slash_commands() {
         QJsonObject command;
         command.insert("name", "close");
         command.insert("description", "Stop the bot");
-        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+        client->create_slash_command(command, dev_guild_id);
     }
 
     {
@@ -175,6 +178,14 @@ void foxobot::create_slash_commands() {
             option.insert("type", applicationCommandOptionType::INTEGER);
             options.push_back(option);
         }
+        {
+            QJsonObject option;
+            option.insert("name", "chart");
+            option.insert("description", "Display the leaderboard as a chart");
+            option.insert("required", false);
+            option.insert("type", applicationCommandOptionType::BOOLEAN);
+            options.push_back(option);
+        }
         command.insert("options", options);
         client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
     }
@@ -194,4 +205,8 @@ void foxobot::create_slash_commands() {
         command.insert("options", options);
         client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
     }
+}
+
+void foxobot::guild_member_update(Client::member_t old_member, Client::member_t *new_member) {
+    qDebug() << old_member.nick << new_member->nick;
 }

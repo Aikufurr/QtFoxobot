@@ -1,8 +1,9 @@
 #include "client.h"
 #include "websocket.h"
 
-Client::Client(QString _application_id) {
+Client::Client(QString _application_id, DbManager *_dbmanager) {
     application_id = _application_id;
+    dbmanager = _dbmanager;
 }
 
 void Client::login(QString _token) {
@@ -42,16 +43,33 @@ void Client::change_presence(QString name, int type, QString status) {
 
 
 void Client::create_slash_command(QJsonObject command, QString guild_id) {
+    QJsonDocument doc(command);
+    QByteArray data = doc.toJson(QJsonDocument::Compact);
+
+    if (dbmanager->cmd_exists(command["name"].toString())) {
+
+        QJsonDocument jDocument(dbmanager->cmd_get(command["name"].toString()));
+        QJsonDocument jCommand(command);
+
+        if (jDocument.toJson(QJsonDocument::Compact) == jCommand.toJson(QJsonDocument::Compact)) {
+            qDebug() << "Skipping" << command["name"].toString() << "- Already exists";
+            return;
+        }
+    }
+
     QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
 
     QString urlString = QString("https://discord.com/api/v8/applications/%1").arg(application_id);
 
     if (command["name"].toString() == "close" && !guild_id.isEmpty()) {
+        qDebug() << "Creating slash command" << command["name"].toString() << "locally";
         urlString += QString("/guilds/%1/commands").arg(guild_id);
     } else {
         if (guild_id.isEmpty()) {
+            qDebug() << "Creating slash command" << command["name"].toString() << "globally";
             urlString += QString("/commands");
         } else {
+            qDebug() << "Creating slash command" << command["name"].toString() << "locally";
             urlString += QString("/guilds/%1/commands").arg(guild_id);
         }
     }
@@ -62,23 +80,91 @@ void Client::create_slash_command(QJsonObject command, QString guild_id) {
     request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
     request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
 
-    QJsonDocument doc(command);
-    QByteArray data = doc.toJson();
-
-    QNetworkReply *reply = mgr->post(request, data);
+    qDebug() << data;
+    QNetworkReply *reply;
+    qDebug() << "POSTING" << command["name"].toString();
+    reply = mgr->post(request, data);
 
     QObject::connect(reply, &QNetworkReply::finished, [=](){
         if(reply->error() == QNetworkReply::NoError){
             QString contents = QString::fromUtf8(reply->readAll());
-            qDebug() << contents;
+            QJsonDocument jsonResponse = QJsonDocument::fromJson(contents.toUtf8());
+            QJsonObject payload = jsonResponse.object();
+            //            qDebug() << payload;
+
+            QJsonDocument jDocument(command);
+            dbmanager->cmd_Update_CreateIfNotExist(payload["id"].toString(), payload["name"].toString(), jDocument.toJson(QJsonDocument::Compact));
         }
         else{
             QString err = reply->errorString();
             qDebug() << err;
         }
         reply->deleteLater();
-        delete mgr;
+        mgr->deleteLater();
     });
+
+}
+
+void Client::delete_slash_command(QString command_id, QString guild_id) {
+    {
+        QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
+
+        QString urlString = QString("https://discord.com/api/v8/applications/%1/commands").arg(application_id);
+        const QUrl url(urlString);
+        QNetworkRequest request(url);
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
+        request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
+
+        QNetworkReply *reply = mgr->get(request);
+
+        QObject::connect(reply, &QNetworkReply::finished, [=](){
+            if(reply->error() == QNetworkReply::NoError){
+                QString contents = QString::fromUtf8(reply->readAll());
+                QJsonDocument jsonResponse = QJsonDocument::fromJson(contents.toUtf8());
+                QJsonArray payload = jsonResponse.array();
+                qDebug() << payload;
+            }
+            else{
+                QString err = reply->errorString();
+                qDebug() << err;
+            }
+            reply->deleteLater();
+            mgr->deleteLater();
+        });
+    }
+    {
+        QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
+
+        QString urlString = QString("https://discord.com/api/v8/applications/%1").arg(application_id);
+
+        if (guild_id.isEmpty()) {
+            urlString += QString("/commands/%1").arg(command_id);
+        } else {
+            urlString += QString("/guilds/%1/commands/%1").arg(guild_id, command_id);
+        }
+
+        const QUrl url(urlString);
+        QNetworkRequest request(url);
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
+        request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
+
+        QNetworkReply *reply = mgr->sendCustomRequest(request, "DELETE");
+
+        QObject::connect(reply, &QNetworkReply::finished, [=](){
+            if(reply->error() == QNetworkReply::NoError){
+                QString contents = QString::fromUtf8(reply->readAll());
+                qDebug() << contents;
+            }
+            else{
+                QString err = reply->errorString();
+                qDebug() << err;
+            }
+            reply->deleteLater();
+            mgr->deleteLater();
+        });
+    }
 }
 
 void Client::getGateway() {
@@ -204,6 +290,99 @@ void Client::send_message(QString channel_id, QString content, embed_t embed) {
         delete mgr;
     });
 }
+
+void Client::send_file_message(QString channel_id, QByteArray file) {
+    embed_t embed;
+    this->send_message(channel_id, file, embed);
+}
+
+void Client::send_file_message(QString channel_id, QByteArray _file, embed_t embed) {
+    QUrl url(QString("https://discord.com/api/channels/%1/messages").arg(channel_id));
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
+    request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
+
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    QJsonObject obj;
+    if (!embed.title.isEmpty()) {
+        QJsonObject json_embed;
+        json_embed.insert("title", embed.title);
+        if (!embed.description.isEmpty()) {
+            json_embed.insert("description", embed.description);
+        }
+        if (embed.colour != 0) {
+            json_embed.insert("color", embed.colour == -1 ? 16757760 : embed.colour); // 14643990 - Darker
+        }
+        if (!embed.url.isEmpty()) {
+            json_embed.insert("url", embed.url);
+        }
+        if (!embed.timestamp.isNull()) {
+            // convert QDateTime to ISO8601 timestamp
+            //            json_embed.insert("timestamp", embed.timestamp.t);
+        }
+        if (!embed.thumbnail_url.isEmpty()) {
+            QJsonObject json_thumbnail_url;
+            json_thumbnail_url.insert("url", embed.thumbnail_url);
+            json_embed.insert("thumbnail", json_thumbnail_url);
+        }
+        if (!embed.author.name.isEmpty()) {
+            QJsonObject json_embed_author;
+            json_embed_author.insert("name", embed.author.name);
+            json_embed_author.insert("icon_url", embed.author.icon_url);
+            json_embed.insert("author", json_embed_author);
+        }
+        if (embed.fields.size() > 0) {
+            QJsonArray fields;
+            foreach(const embed_field_t &field, embed.fields) {
+                QJsonObject json_embed_field;
+                json_embed_field.insert("name", field.name);
+                json_embed_field.insert("value", field.value);
+                json_embed_field.insert("inline", field.is_inline);
+                fields.push_back(json_embed_field);
+            }
+            json_embed.insert("fields", fields);
+        }
+        obj.insert("embed", json_embed);
+    }
+    QJsonDocument doc(obj);
+    QByteArray data = doc.toJson();
+    QHttpPart loginPart;
+    /* username */
+    loginPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"payload_json\""));
+    loginPart.setBody(data);
+    multiPart->append(loginPart);
+
+    QHttpPart filePart;
+    /* important that the files[] variable have the brackets, for PHP to interpret correctly */
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\"rank_chart.png\""));
+    filePart.setHeader(QNetworkRequest::ContentLengthHeader, _file.size());
+
+    //        file->open(QIODevice::ReadOnly);
+    //        filePart.setBodyDevice(file);
+    //        file->setParent(multiPart); // we cannot delete the file now, so delete it with the multiPart
+
+    filePart.setBody(_file);
+    multiPart->append(filePart);
+
+
+    QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
+    QNetworkReply* reply = networkManager->post(request, multiPart);
+
+    QObject::connect(reply, &QNetworkReply::finished, [=](){
+        if(reply->error() == QNetworkReply::NoError){
+            //            QString contents = QString::fromUtf8(reply->readAll());
+            //            qDebug() << contents;
+            qDebug() << "Message Sent";
+        } else{
+            QString err = reply->errorString();
+            qDebug() << err;
+        }
+        reply->deleteLater();
+        delete networkManager;
+    });
+}
+
 //void Client::replyFinished(QNetworkReply *rep)
 //{
 //    QByteArray bts = rep->readAll();
@@ -228,7 +407,7 @@ void Client::READY(QJsonObject response) {
     emit ready(user.username);
 }
 
-void Client::GUILD_CREATE(QJsonObject json_guild) {
+void Client::create_guild(QJsonObject json_guild) {
     Client::guild_t guild;
     guild.id = json_guild["id"].toString();
     guild.name = json_guild["name"].toString();
@@ -240,165 +419,189 @@ void Client::GUILD_CREATE(QJsonObject json_guild) {
     guild.explicit_content_filter = json_guild["explicit_content_filter"].toInt();
     guild.mfa_level = json_guild["mfa_level"].toInt();
     guild.large = json_guild["large"].toBool();
-    guild.member_count = json_guild["member_count"].toInt();
+    guild.member_count = json_guild["member_count"].toInt(); // get members
     guild.max_members = json_guild["max_members"].toInt();
     guild.description = json_guild["description"].toString().isNull() ? "" : json_guild["description"].toString();
 
 
-    {
-        QList<Client::roles_t> roles;
-        foreach(const QJsonValue &value, json_guild["roles"].toArray()) {
-            QJsonObject json_role = value.toObject();
-            Client::roles_t role;
-            role.id = json_role["id"].toString();
-            role.name = json_role["name"].toString();
-            role.colour = json_role["color"].toInt();
-            role.position = json_role["position"].toInt();
-            role.permissions = json_role["permissions"].toString();
-            role.managed = json_role["managed"].toBool();
-            role.mentionable = json_role["mentionable"].toBool();
-            roles.push_back(role);
-        }
-        guild.roles = roles;
+
+    QList<Client::roles_t> roles;
+    foreach(const QJsonValue &value, json_guild["roles"].toArray()) {
+        QJsonObject json_role = value.toObject();
+        Client::roles_t role;
+        role.id = json_role["id"].toString();
+        role.name = json_role["name"].toString();
+        role.colour = json_role["color"].toInt();
+        role.position = json_role["position"].toInt();
+        role.permissions = json_role["permissions"].toString();
+        role.managed = json_role["managed"].toBool();
+        role.mentionable = json_role["mentionable"].toBool();
+        roles.push_back(role);
     }
-    //    {
-    //        QList<Client::member_t> members;
-    //        foreach(const QJsonValue &value, json_guild["members"].toArray()) {
-    //            QJsonObject json_member = value.toObject();
-    //            QList<Client::roles_t> roles;
-    //            Client::member_t member;
-    //            Client::user_t user;
+    guild.roles = roles;
 
-    //            user.avatar = json_guild["user"].toObject()["avatar"].toString();
-    //            user.bot = json_guild["user"].toObject()["bot"].toBool();
-    //            user.discriminator = json_guild["user"].toObject()["discriminator"].toString();
-    //            user.flags = json_guild["user"].toObject()["flags"].toInt();
-    //            user.id = json_guild["user"].toObject()["id"].toString();
-    //            user.mfa_enabled = json_guild["user"].toObject()["mfa_enabled"].toBool();
-    //            user.username = json_guild["user"].toObject()["username"].toString();
-    //            user.verified = json_guild["user"].toObject()["verified"].toBool();
-    //            users[user.id] = user;
-    //            member.user = user;
 
-    //            member.nick = json_guild["nick"].toString().isNull() ? "" : json_guild["nick"].toString();
+    QJsonArray member_array = json_guild["members"].toArray();
 
-    //            QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
-    //            foreach(const QJsonValue &roleValue, json_guild["roles"].toArray()) {
-    //                QJsonObject json_role = roleValue.toObject();
-    //                Client::roles_t role;
+    if (member_array.size() <= 1) {
+        if (guild.member_count < 1000) {
+            qDebug() << "Pulling x<1000 members from" << guild.id;
+            QNetworkAccessManager NAManager;
+            QNetworkRequest request(QUrl(QString("https://discord.com/api/guilds/%1/members?limit=999").arg(guild.id)));
+            request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
+            request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
+            QNetworkReply *reply = NAManager.get(request);
+            QEventLoop eventLoop;
+            QObject::connect(reply, SIGNAL(finished()), &eventLoop, SLOT(quit()));
+            eventLoop.exec();
+            QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
+            QJsonArray payload = jsonResponse.array();
+            NAManager.deleteLater();
 
-    //                for ( ; it != guild.roles.constEnd(); ++it ) {
-    //                    const Client::roles_t &roleIT= *it;
-    //                    if (roleIT.id == json_role["id"].toString()) {
-    //                        role = roleIT;
-    //                        roles.push_back(role);
-    //                        break;
-    //                    }
-    //                }
-    //            }
-    //            member.roles = roles;
-    //            member.joined_at = QDateTime::fromString(json_guild["joined_at"].toString(), Qt::ISODate);
-    //            member.premium_since = QDateTime::fromString(json_guild["premium_since"].toString(), Qt::ISODate);
-    //            member.permissions = json_guild["permissions"].toString();
+            foreach(const QJsonValue &value, payload) {
+                member_array.push_back(value.toObject());
+            }
+        } else {
+            // Figure out how to work with the "highest snowflake"
+        }
+    }
 
-    //            members.push_back(member);
-    //        }
-    //        guild.members = members;
-    //    }
-    {
-        foreach(const QJsonValue &value, json_guild["members"].toArray()) {
-            QJsonObject json_member = value.toObject();
-            QList<Client::roles_t> roles;
-            Client::member_t member;
-            Client::user_t user;
+    foreach(const QJsonValue &value, member_array) {
+        QJsonObject json_member = value.toObject();
+        QList<Client::roles_t> roles;
+        Client::member_t member;
+        Client::user_t user;
 
-            user.avatar = json_guild["user"].toObject()["avatar"].toString();
-            user.bot = json_guild["user"].toObject()["bot"].toBool();
-            user.discriminator = json_guild["user"].toObject()["discriminator"].toString();
-            user.flags = json_guild["user"].toObject()["flags"].toInt();
-            user.id = json_guild["user"].toObject()["id"].toString();
-            user.mfa_enabled = json_guild["user"].toObject()["mfa_enabled"].toBool();
-            user.username = json_guild["user"].toObject()["username"].toString();
-            user.verified = json_guild["user"].toObject()["verified"].toBool();
-            users[user.id] = user;
-            member.user = user;
+        user.avatar = json_member["user"].toObject()["avatar"].toString();
+        user.bot = json_member["user"].toObject()["bot"].toBool();
+        user.discriminator = json_member["user"].toObject()["discriminator"].toString();
+        user.flags = json_member["user"].toObject()["flags"].toInt();
+        user.id = json_member["user"].toObject()["id"].toString();
+        user.mfa_enabled = json_member["user"].toObject()["mfa_enabled"].toBool();
+        user.username = json_member["user"].toObject()["username"].toString();
+        user.verified = json_member["user"].toObject()["verified"].toBool();
+        users[user.id] = user;
+        member.user = user;
 
-            member.nick = json_guild["nick"].toString().isNull() ? "" : json_guild["nick"].toString();
+        member.nick = json_member["nick"].toString().isNull() ? "" : json_member["nick"].toString();
 
-            QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
-            foreach(const QJsonValue &roleValue, json_guild["roles"].toArray()) {
-                QJsonObject json_role = roleValue.toObject();
-                Client::roles_t role;
+        QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
+        foreach(const QJsonValue &roleValue, json_guild["roles"].toArray()) {
+            QJsonObject json_role = roleValue.toObject();
+            Client::roles_t role;
 
-                for ( ; it != guild.roles.constEnd(); ++it ) {
-                    const Client::roles_t &roleIT= *it;
-                    if (roleIT.id == json_role["id"].toString()) {
-                        role = roleIT;
-                        roles.push_back(role);
-                        break;
-                    }
+            for ( ; it != guild.roles.constEnd(); ++it ) {
+                const Client::roles_t &roleIT= *it;
+                if (roleIT.id == json_role["id"].toString()) {
+                    role = roleIT;
+                    roles.push_back(role);
+                    break;
                 }
             }
-            member.roles = roles;
-            member.joined_at = QDateTime::fromString(json_guild["joined_at"].toString(), Qt::ISODate);
-            member.premium_since = QDateTime::fromString(json_guild["premium_since"].toString(), Qt::ISODate);
-            member.permissions = json_guild["permissions"].toString();
+        }
+        member.roles = roles;
+        member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
+        member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
+        member.permissions = json_member["permissions"].toString();
 
-            guild.members[user.id] = member;
+        guild.members[user.id] = member;
+    }
+
+
+    QJsonArray json_channels = json_guild["channels"].toArray();
+
+    if (json_channels.size() == 0) {
+        qDebug() << "Pulling channels from" << guild.id;
+        QNetworkAccessManager NAManager;
+        QNetworkRequest request(QUrl(QString("https://discord.com/api/guilds/%1/channels").arg(guild.id)));
+        request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
+        request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
+        QNetworkReply *reply = NAManager.get(request);
+        QEventLoop eventLoop;
+        QObject::connect(reply, SIGNAL(finished()), &eventLoop, SLOT(quit()));
+        eventLoop.exec();
+        QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
+        QJsonArray payload = jsonResponse.array();
+        NAManager.deleteLater();
+
+        foreach(const QJsonValue &value, payload) {
+            json_channels.push_back(value.toObject());
         }
     }
-    {
-        QList<Client::channel_t> channels;
-        foreach(const QJsonValue &value, json_guild["members"].toArray()) {
-            QJsonObject json_channel = value.toObject();
-            Client::channel_t channel;
 
-            channel.id = json_channel["id"].toString();
-            channel.type = json_channel["type"].toInt();
-            channel.guild_id = guild.id;
-            channel.position = json_channel["position"].toInt();
+    QList<Client::channel_t> channels;
+    foreach(const QJsonValue &value, json_channels) {
+        QJsonObject json_channel = value.toObject();
+        Client::channel_t channel;
 
-            QList<permission_overwrite_t> permission_overwrites;
-            foreach(const QJsonValue &value, json_guild["roles"].toArray()) {
-                QJsonObject json_permission_overwrite = value.toObject();
-                Client::permission_overwrite_t permission_overwrite;
-                permission_overwrite.id = json_permission_overwrite["id"].toString();
-                permission_overwrite.type = json_permission_overwrite["type"].toString();
-                permission_overwrite.allow = json_permission_overwrite["allow_new"].toString();
-                permission_overwrite.deny = json_permission_overwrite["deny_new"].toString();
-                permission_overwrites.push_back(permission_overwrite);
-            }
-            channel.permission_overwrites = permission_overwrites;
+        channel.id = json_channel["id"].toString();
+        channel.type = json_channel["type"].toInt();
+        channel.guild_id = guild.id;
+        channel.position = json_channel["position"].toInt();
 
-
-            channel.name = json_channel["name"].toString();
-            channel.topic = json_channel["topic"].toString().isNull() ? "" : json_guild["topic"].toString();
-            channel.nsfw = json_channel["nsfw"].toBool();
-            channel.last_message_id = json_channel["last_message_id"].toString();
-            channel.bitrate = json_channel["bitrate"].toInt();
-            channel.user_limit = json_channel["user_limit"].toInt();
-            channel.parent_id = json_channel["parent_id"].toString();
-
-
-            channels.push_back(channel);
+        QList<permission_overwrite_t> permission_overwrites;
+        foreach(const QJsonValue &value, json_guild["roles"].toArray()) {
+            QJsonObject json_permission_overwrite = value.toObject();
+            Client::permission_overwrite_t permission_overwrite;
+            permission_overwrite.id = json_permission_overwrite["id"].toString();
+            permission_overwrite.type = json_permission_overwrite["type"].toString();
+            permission_overwrite.allow = json_permission_overwrite["allow_new"].toString();
+            permission_overwrite.deny = json_permission_overwrite["deny_new"].toString();
+            permission_overwrites.push_back(permission_overwrite);
         }
-        guild.channels = channels;
+        channel.permission_overwrites = permission_overwrites;
+
+
+        channel.name = json_channel["name"].toString();
+        channel.topic = json_channel["topic"].toString().isNull() ? "" : json_guild["topic"].toString();
+        channel.nsfw = json_channel["nsfw"].toBool();
+        channel.last_message_id = json_channel["last_message_id"].toString();
+        channel.bitrate = json_channel["bitrate"].toInt();
+        channel.user_limit = json_channel["user_limit"].toInt();
+        channel.parent_id = json_channel["parent_id"].toString();
+
+
+        channels.push_back(channel);
     }
+
+    guild.channels = channels;
 
     guilds[guild.id] = guild;
 }
 
-Client::guild_t Client::getGuild(QString guild_id) {
-    return guilds[guild_id];
-
-    // if not exist try GET
-    //    Client::guild_t guild;
-    //    return guild;
+void Client::GUILD_CREATE(QJsonObject json_guild) {
+    this->create_guild(json_guild);
 }
+
+Client::guild_t Client::getGuild(QString guild_id) {
+    if (guilds.contains(guild_id)) {
+        return guilds[guild_id];
+    } else {
+        qDebug() << "Pulling guild" << guild_id;
+        QNetworkAccessManager NAManager;
+        QNetworkRequest request(QUrl(QString("https://discord.com/api/guilds/%1?with_counts=true").arg(guild_id)));
+        request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
+        request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
+        QNetworkReply *reply = NAManager.get(request);
+        QEventLoop eventLoop;
+        QObject::connect(reply, SIGNAL(finished()), &eventLoop, SLOT(quit()));
+        eventLoop.exec();
+        QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
+        QJsonObject json_guild = jsonResponse.object();
+
+        json_guild["member_count"] = json_guild["approximate_member_count"].toInt();
+
+        this->create_guild(json_guild);
+
+        return guilds[guild_id];
+    }
+}
+
 Client::user_t Client::getUser(QString user_id) {
     if (users.contains(user_id)) {
         return users[user_id];
     } else {
+        qDebug() << "Pulling user" << user_id;
         QNetworkAccessManager NAManager;
         QNetworkRequest request(QUrl(QString("https://discord.com/api/users/%1").arg(user_id)));
         request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
@@ -409,6 +612,7 @@ Client::user_t Client::getUser(QString user_id) {
         eventLoop.exec();
         QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
         QJsonObject payload = jsonResponse.object();
+        NAManager.deleteLater();
         Client::user_t user;
         user.avatar = payload["avatar"].toString();
         user.discriminator = payload["discriminator"].toString();
@@ -426,6 +630,7 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
     if (guild.members.contains(user_id)) {
         return guild.members[user_id];
     } else {
+        qDebug() << "Pulling member" << user_id << "from" << guild_id;
         Client::user_t user = this->getUser(user_id);
 
         QNetworkAccessManager NAManager;
@@ -438,6 +643,7 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
         eventLoop.exec();
         QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
         QJsonObject payload = jsonResponse.object();
+        NAManager.deleteLater();
 
         Client::member_t member;
         member.user = user;
@@ -459,6 +665,7 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
         member.premium_since = QDateTime::fromString(payload["premium_since"].toString(), Qt::ISODate);
 
         guild.members[user.id] = member;
+        guilds[guild.id] = guild;
         return member;
     }
 }
@@ -467,7 +674,6 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
 void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
     Client::member_t new_member;
     Client::user_t user;
-    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
 
     user.avatar = json_member["user"].toObject()["avatar"].toString();
     user.discriminator = json_member["user"].toObject()["discriminator"].toString();
@@ -481,8 +687,8 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
 
     QList<Client::roles_t> roles;
     foreach(const QJsonValue &value, json_member["roles"].toArray()) {
-        QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
-        for ( ; it != guild.roles.constEnd(); ++it ) {
+        QList<Client::roles_t>::ConstIterator it = this->getGuild(json_member["guild_id"].toString()).roles.constBegin();
+        for ( ; it != this->getGuild(json_member["guild_id"].toString()).roles.constEnd(); ++it ) {
             const Client::roles_t &role = *it;
 
             if (value.toString() == role.id) {
@@ -494,9 +700,14 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
     new_member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
     new_member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
 
-    Client::member_t old_member = guild.members[user.id];
+
+    Client::member_t old_member = this->getMember(user.id, json_member["guild_id"].toString());
+
+    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
     guild.members[user.id] = new_member;
-    emit guild_member_update(&old_member, &new_member);
+    guilds[guild.id] = guild;
+    qDebug() << "{Client}" << old_member.nick << new_member.nick;
+    emit guild_member_update(old_member, &new_member);
 }
 
 void Client::MESSAGE_CREATE(QJsonObject json_message) {
@@ -673,9 +884,12 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
 
     foreach(const QJsonValue &value, json_interaction["data"].toObject()["options"].toArray()) {
         QJsonObject json_option = value.toObject();
-        interaction.options[json_option["name"].toString()] = json_option["value"].toString();
-        if (interaction.options[json_option["name"].toString()].isEmpty()) {
-            interaction.options[json_option["name"].toString()] = QString::number(json_option["value"].toInt());
+        if (json_option["value"].type() == QJsonValue::Bool) {
+            interaction.options[json_option["name"].toString()] = json_option["value"].toBool() ? "1" : "0";
+        } else if (json_option["value"].type() == QJsonValue::String) {
+            interaction.options[json_option["name"].toString()] = json_option["value"].toString();
+        } else if (json_option["value"].type() == QJsonValue::Double) {
+            interaction.options[json_option["name"].toString()] = QString::number(json_option["value"].toDouble());
         }
     }
 

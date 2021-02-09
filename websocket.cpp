@@ -51,11 +51,8 @@ void Websocket::resumeGateway() {
 }
 void Websocket::onSocketDisconnected() {
     qDebug() << "WebSocket disonnected";
-    if (!session_id.isEmpty()) {
-        m_webSocket.close();
-        m_webSocket.open(QUrl("wss://gateway.discord.gg/?v=6&encoding=json"));
-        resumeGateway();
-    }
+    m_webSocket.close();
+    m_webSocket.open(QUrl("wss://gateway.discord.gg/?v=6&encoding=json"));
 }
 
 
@@ -63,7 +60,7 @@ void Websocket::onSocketTextMessageReceived(QString message) {
     //    qDebug() << "Message received:" << message;
     QJsonDocument jsonResponse = QJsonDocument::fromJson(message.toUtf8());
     QJsonObject payload = jsonResponse.object();
-//    qDebug() << payload;
+    //    qDebug() << payload;
 
     switch (payload["op"].toInt()) {
     case opcodes::DISPATCH: {

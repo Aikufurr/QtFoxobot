@@ -14,6 +14,7 @@
 #include <QNetworkReply>
 #include <QtNetwork/QNetworkAccessManager>
 
+#include "dbmanager.h"
 #include "websocket.h"
 
 namespace channelTypes {
@@ -45,7 +46,7 @@ class Client : public QObject {
     Q_OBJECT
 
 public:
-    Client(QString application_id);
+    Client(QString application_id, DbManager *dbmanager);
     struct user_t {
         QString avatar;
         bool bot;
@@ -214,16 +215,21 @@ public:
     void change_presence(QString name, int type, QString status);
     void send_message(QString channel_id, QString content);
     void send_message(QString channel_id, QString content, embed_t embed);
+    void send_file_message(QString channel_id, QByteArray file);
+    void send_file_message(QString channel_id, QByteArray file, embed_t embed);
     void create_slash_command(QJsonObject command, QString guild_id);
+    void delete_slash_command(QString command_id, QString guild_id);
     guild_t getGuild(QString guild_id);
     user_t getUser(QString user_id);
     member_t getMember(QString user_id, QString guild_id);
     void getGateway();
+    DbManager *dbmanager;
 
 private:
     Websocket *websocket = new Websocket("");
     QHash<QString, guild_t> guilds;
     QHash<QString, user_t> users;
+    void create_guild(QJsonObject json_guild);
 
 private slots:
     void READY(QJsonObject response);
@@ -237,7 +243,7 @@ signals:
     void ready(QString);
     void message_create(Client::message_t);
     void interaction_create(Client::interaction_t *interaction);
-    void guild_member_update(Client::member_t *old_member, Client::member_t *new_member);
+    void guild_member_update(Client::member_t old_member, Client::member_t *new_member);
 };
 
 #endif // CLIENT_H

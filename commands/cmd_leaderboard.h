@@ -5,6 +5,10 @@
 #include "client.h"
 #include "dbmanager.h"
 
+#include <QPixmap>
+#include <QtCharts>
+#include <QDateTimeAxis>
+
 class cmd_leaderboard : public QObject {
     Q_OBJECT
 public:

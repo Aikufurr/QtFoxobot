@@ -3,6 +3,7 @@
 cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interaction, DbManager *dbManager) {
     Client::guild_t guild = client->getGuild(interaction->guild_id);
     int amount = 10;
+    bool isChart = false;
     if (interaction->options.size() > 0) {
         if (interaction->options.contains("custom")) {
             amount = interaction->options["custom"].toInt();
@@ -12,15 +13,20 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
             if (amount > 20) {
                 amount = 20;
             }
-        } else {
+        } else if (interaction->options.contains("amount")) {
             amount = interaction->options["amount"].toInt();
+        }
+
+        if (interaction->options.contains("chart")) {
+            isChart = interaction->options["chart"].toInt() == 1 ? true : false;
         }
     }
 
     QJsonArray leaderboard = dbManager->rank_leaderboard(interaction->guild_id, amount);
 
+
     Client::embed_t embed;
-    embed.title = QString("%1's Leaderboard").arg(guild.name);
+    embed.title = QString("%1'%2 Leaderboard").arg(guild.name, guild.name.endsWith("s") ? "" : "s");
     embed.description = QString("The top %1 member%2").arg(QString::number(amount), amount != 1 ? "s" : "");
     embed.colour = 16757760; // FFB400 - Orange
 
@@ -46,5 +52,69 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
     if (!guild.icon.isNull()) {
         embed.thumbnail_url = QString("https://cdn.discordapp.com/icons/%1/%2.%3").arg(interaction->guild_id, guild.icon, guild.icon.startsWith("a_") ? "gif" : "png");
     }
-    client->send_message(interaction->channel_id, "", embed);
+
+    if (!isChart) {
+        client->send_message(interaction->channel_id, "", embed);
+    } else {
+        QLineSeries *series = new QLineSeries();
+        series->setPointLabelsVisible(true); // Argument
+        series->setPointLabelsColor(Qt::black);
+        //        series->setPointLabelsFormat("@yPoint");
+        series->setPointLabelsClipping(false);
+        series->setPointLabelsColor(Qt::white);
+
+        foreach(const QJsonValue &value, leaderboard) {
+            QJsonObject result = value.toObject();
+            series->append(result["position"].toInt(), result["rank"].toInt());
+        }
+
+        QChart *chart = new QChart();
+        chart->legend()->hide();
+        chart->addSeries(series);
+        QValueAxis *axisX = new QValueAxis;
+        axisX->setTitleText("Rank");
+        axisX->setReverse(true);
+        axisX->setLabelFormat("%.0f");
+        axisX->setLabelsColor(Qt::white);
+        axisX->setTitleBrush(QBrush(Qt::white));
+        chart->addAxis(axisX, Qt::AlignBottom);
+        QValueAxis *axisY = new QValueAxis;
+        axisY->setTitleText("Messages");
+        axisY->applyNiceNumbers();
+        axisY->setLabelsColor(Qt::white);
+        axisY->setTitleBrush(QBrush(Qt::white));
+        chart->addAxis(axisY, Qt::AlignLeft);
+
+        series->attachAxis(axisX);
+        series->attachAxis(axisY);
+
+        chart->layout()->setContentsMargins(0, 0, 0, 0);
+        chart->setBackgroundBrush(Qt::transparent);
+        QString g_name = client->getGuild(interaction->guild_id).name;
+        chart->setTitle(QString("<b>%1'%2 Leaderboard</b>").arg(g_name, g_name.endsWith("s") ? "" : "s"));
+        chart->setTitleBrush(QBrush(Qt::white));
+
+        QChartView *chartView = new QChartView(chart);
+        chartView->setRenderHint(QPainter::Antialiasing);
+
+        chartView->resize(600, 400);
+        //            chartView->resize(400, 200);
+
+        chartView->grab();
+        QPixmap pix(chartView->size());
+        pix.fill(Qt::transparent);//fill with transparent color  -- possible argument?
+        QPainter painter(&pix);
+
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.setPen(Qt::NoPen);
+        chartView->render(&painter);
+        painter.end();
+
+        QByteArray file;
+        QBuffer buffer(&file);
+        buffer.open(QIODevice::WriteOnly);
+        pix.save(&buffer, "PNG");
+
+        client->send_file_message(interaction->channel_id, file, embed);
+    }
 }

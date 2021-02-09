@@ -27,7 +27,7 @@ DbManager::DbManager(const QString &path) {
                           ))**");
 
             if (!query.exec()) {
-                qDebug() << "createTable error:"
+                qDebug() << "createTable ranks error:"
                          << query.lastError();
             }
         }
@@ -46,13 +46,104 @@ DbManager::DbManager(const QString &path) {
                           ))**");
 
             if (!query.exec()) {
-                qDebug() << "createTable error:"
+                qDebug() << "createTable config error:"
+                         << query.lastError();
+            }
+        }
+    } {
+        QSqlQuery tableQuery = QSqlQuery(m_db);
+        tableQuery.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='commands'");
+        tableQuery.exec();
+
+        if (!tableQuery.next()) {
+            QSqlQuery query = QSqlQuery(m_db);
+            query.prepare(R"**(CREATE TABLE IF NOT EXISTS "commands" (
+                          "ID"	INTEGER UNIQUE,
+                          "COMMAND_ID"	TEXT NOT NULL UNIQUE,
+                          "COMMAND"	TEXT NOT NULL UNIQUE,
+                          "VALUE"	TEXT NOT NULL UNIQUE,
+                          PRIMARY KEY("ID" AUTOINCREMENT)
+                          ))**");
+
+            if (!query.exec()) {
+                qDebug() << "createTable commands error:"
                          << query.lastError();
             }
         }
     }
 }
 
+bool DbManager::cmd_exists(QString command) {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("SELECT ID FROM commands WHERE COMMAND = :COMMAND");
+    query.bindValue(":COMMAND", command);
+    query.exec();
+    if (query.next()) {
+        return true;
+    } else {
+        return false;
+    }
+}
+QString DbManager::cmd_id(QString command) {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("SELECT COMMAND_ID FROM commands WHERE COMMAND = :COMMAND");
+    query.bindValue(":COMMAND", command);
+    query.exec();
+    if (query.next()) {
+        return query.value(0).toString();
+    } else {
+        return "";
+    }
+}
+QJsonObject DbManager::cmd_get(QString command) {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("SELECT VALUE FROM commands WHERE COMMAND = :COMMAND");
+    query.bindValue(":COMMAND", command);
+    query.exec();
+    if (query.next()) {
+        QJsonDocument jsonResponse = QJsonDocument::fromJson(query.value(0).toString().toUtf8());
+        QJsonObject payload = jsonResponse.object();
+        return payload;
+    } else {
+        QJsonObject payload;
+        return payload;
+    }
+}
+QList<QString> DbManager::cmd_get() {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("SELECT COMMAND FROM commands");
+    query.exec();
+    QList<QString> commands;
+    while (query.next()) {
+        commands.push_back(query.value(0).toString());
+    }
+    return commands;
+}
+void DbManager::cmd_Update_CreateIfNotExist(QString command_id, QString command, QString value) {
+    qDebug() << "{DB} Selecting" << command << command_id;
+    QSqlQuery selectQuery = QSqlQuery(m_db);
+    selectQuery.prepare("SELECT ID FROM commands WHERE COMMAND = :COMMAND");
+    selectQuery.bindValue(":COMMAND", command);
+    selectQuery.exec();
+    if (selectQuery.next()) {
+        QSqlQuery query = QSqlQuery(m_db);
+        query.prepare("UPDATE commands SET COMMAND_ID = :COMMAND_ID, VALUE = :VALUE WHERE COMMAND = :COMMAND");
+        query.bindValue(":COMMAND_ID", command_id);
+        query.bindValue(":COMMAND", command);
+        query.bindValue(":VALUE", value);
+        query.exec();
+        qDebug() << "{DB}" << command << "updated";
+    } else {
+        qDebug() << "{DB}" << command << "does not exist";
+        QSqlQuery query = QSqlQuery(m_db);
+        query.prepare("INSERT INTO commands (COMMAND_ID, COMMAND, VALUE) VALUES (:COMMAND_ID, :COMMAND, :VALUE)");
+        query.bindValue(":COMMAND_ID", command_id);
+        query.bindValue(":COMMAND", command);
+        query.bindValue(":VALUE", value);
+        query.exec();
+        qDebug() << "{DB}" << command << "created";
+    }
+}
 
 QString DbManager::config_get(QString key) {
     QSqlQuery query = QSqlQuery(m_db);

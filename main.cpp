@@ -1,9 +1,9 @@
-#include <QCoreApplication>
+#include <QApplication>
 #include "foxobot.h"
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
+    QApplication a(argc, argv);
 
     new foxobot();
 
