@@ -80,6 +80,14 @@ void Websocket::onSocketTextMessageReceived(QString message) {
             emit INTERACTION_CREATE(payload["d"].toObject());
         } else if (payload["t"].toString() == "GUILD_MEMBER_UPDATE") {
             emit GUILD_MEMBER_UPDATE(payload["d"].toObject());
+        } else if (payload["t"].toString() == "GUILD_UPDATE") {
+            emit GUILD_UPDATE(payload["d"].toObject());
+        } else if (payload["t"].toString() == "MESSAGE_UPDATE") {
+            emit MESSAGE_UPDATE(payload["d"].toObject());
+        } else if (payload["t"].toString() == "MESSAGE_DELETE") {
+            emit MESSAGE_DELETE(payload["d"].toObject());
+        } else {
+            qDebug() << payload;
         }
         break;
     }
@@ -88,7 +96,7 @@ void Websocket::onSocketTextMessageReceived(QString message) {
         if (payload["d"].toBool() == true) {
             resumeGateway();
         } else {
-            QTimer::singleShot((rand() % 5 + 1)*1000, this, &Websocket::resumeGateway);
+            QTimer::singleShot((rand() % 5 + 1)*1000, this, SLOT(resumeGateway));
         }
         break;
     }

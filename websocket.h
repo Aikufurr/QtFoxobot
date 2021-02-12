@@ -48,9 +48,9 @@ private:
     QString token;
     QString session_id;
     QTimer *heartbeatTimer;
-    void resumeGateway();
 
 private slots:
+    void resumeGateway();
     void heartbeat();
     void onSocketConnected();
     void onSocketDisconnected();
@@ -62,6 +62,9 @@ signals:
     void MESSAGE_CREATE(QJsonObject);
     void INTERACTION_CREATE(QJsonObject);
     void GUILD_MEMBER_UPDATE(QJsonObject);
+    void GUILD_UPDATE(QJsonObject);
+    void MESSAGE_UPDATE(QJsonObject);
+    void MESSAGE_DELETE(QJsonObject);
 };
 
 #endif // WEBSOCKET_H

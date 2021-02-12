@@ -70,8 +70,90 @@ DbManager::DbManager(const QString &path) {
                          << query.lastError();
             }
         }
+    } {
+        QSqlQuery tableQuery = QSqlQuery(m_db);
+        tableQuery.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'");
+        tableQuery.exec();
+
+        if (!tableQuery.next()) {
+            QSqlQuery query = QSqlQuery(m_db);
+            query.prepare(R"**(CREATE TABLE IF NOT EXISTS "settings" (
+                          "ID"	INTEGER UNIQUE,
+                          "GUILD_ID"	TEXT NOT NULL,
+                          "SETTING_GROUP"	TEXT NOT NULL,
+                          "SETTING"	TEXT NOT NULL,
+                          "VALUE"	TEXT NOT NULL,
+                          PRIMARY KEY("ID" AUTOINCREMENT)
+                          ))**");
+
+            if (!query.exec()) {
+                qDebug() << "createTable commands error:"
+                         << query.lastError();
+            }
+        }
     }
 }
+
+QHash<QString, QHash<QString, QString>> DbManager::setting_get(QString guild_id) {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("SELECT GROUP, SETTING, VALUE FROM settings WHERE GUILD_ID = :GUILD_ID");
+    query.bindValue(":GUILD_ID", guild_id);
+    query.exec();
+    QHash<QString, QHash<QString, QString>> settings;
+    while (query.next()) {
+        QHash<QString, QString> setting;
+        setting[query.value("SETTING").toString()] = query.value("VALUE").toString();
+        settings[query.value("SETTING_GROUP").toString()] = setting;
+    }
+    return settings;
+}
+
+QString DbManager::setting_get(QString guild_id, QString group, QString setting) {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("SELECT VALUE FROM settings WHERE GUILD_ID = :GUILD_ID AND SETTING_GROUP = :GROUP AND SETTING = :SETTING");
+    query.bindValue(":GUILD_ID", guild_id);
+    query.bindValue(":GROUP", group);
+    query.bindValue(":SETTING", setting);
+    query.exec();
+    query.next();
+    return query.value(0).toString();
+}
+
+bool DbManager::setting_set(QString guild_id, QString group, QString setting, QString value) {
+    qDebug() << "{DB} Selecting" << guild_id << group << setting;
+    QSqlQuery selectQuery = QSqlQuery(m_db);
+    selectQuery.prepare("SELECT ID FROM settings WHERE GUILD_ID = :GUILD_ID AND SETTING_GROUP = :GROUP AND SETTING = :SETTING");
+    selectQuery.bindValue(":GUILD_ID", guild_id);
+    selectQuery.bindValue(":GROUP", group);
+    selectQuery.bindValue(":SETTING", setting);
+    selectQuery.exec();
+    if (selectQuery.next()) {
+        QSqlQuery query = QSqlQuery(m_db);
+        query.prepare("UPDATE settings SET VALUE = :VALUE WHERE GUILD_ID = :GUILD_ID AND SETTING_GROUP = :GROUP AND SETTING = :SETTING");
+        query.bindValue(":GUILD_ID", guild_id);
+        query.bindValue(":GROUP", group);
+        query.bindValue(":SETTING", setting);
+        query.bindValue(":VALUE", value);
+        if(!query.exec()) {
+            return false;
+        }
+        qDebug() << "{DB}" << guild_id << group << setting << "updated to" << value;
+    } else {
+        qDebug() << "{DB}" << guild_id << group << setting << "does not exist";
+        QSqlQuery query = QSqlQuery(m_db);
+        query.prepare("INSERT INTO settings (GUILD_ID, SETTING_GROUP, SETTING, VALUE) VALUES (:GUILD_ID, :GROUP, :SETTING, :VALUE)");
+        query.bindValue(":GUILD_ID", guild_id);
+        query.bindValue(":GROUP", group);
+        query.bindValue(":SETTING", setting);
+        query.bindValue(":VALUE", value);
+        if(!query.exec()) {
+            return false;
+        }
+        qDebug() << "{DB}" << guild_id << group << setting << "created" << value;
+    }
+    return true;
+}
+
 
 bool DbManager::cmd_exists(QString command) {
     QSqlQuery query = QSqlQuery(m_db);
@@ -119,7 +201,7 @@ QList<QString> DbManager::cmd_get() {
     }
     return commands;
 }
-void DbManager::cmd_Update_CreateIfNotExist(QString command_id, QString command, QString value) {
+void DbManager::cmd_set(QString command_id, QString command, QString value) {
     qDebug() << "{DB} Selecting" << command << command_id;
     QSqlQuery selectQuery = QSqlQuery(m_db);
     selectQuery.prepare("SELECT ID FROM commands WHERE COMMAND = :COMMAND");
