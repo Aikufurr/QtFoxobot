@@ -494,33 +494,6 @@ void Client::create_guild(QJsonObject json_guild) {
     QJsonArray member_array = json_guild["members"].toArray();              // Members in the json
     QHash<QString, member_t> current_members = guilds[guild.id].members;    // Members in the guild
 
-    // If no members exist currently (on update)
-    if (current_members.size() <= 1) {
-        // If no members exist in the json
-        if (member_array.size() <= 1) {
-            if (guild.member_count < 1000) {
-                qDebug() << "Pulling x<1000 members from" << guild.id;
-                QNetworkAccessManager NAManager;
-                QNetworkRequest request(QUrl(QString("https://discord.com/api/guilds/%1/members?limit=999").arg(guild.id)));
-                request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
-                request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
-                QNetworkReply *reply = NAManager.get(request);
-                QEventLoop eventLoop;
-                QObject::connect(reply, SIGNAL(finished()), &eventLoop, SLOT(quit())); // 48- bug
-                eventLoop.exec();
-                QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
-                QJsonArray payload = jsonResponse.array();
-                NAManager.deleteLater();
-
-                foreach(const QJsonValue &value, payload) {
-                    member_array.push_back(value.toObject());
-                }
-            } else {
-                // Figure out how to work with the "highest snowflake"
-            }
-        }
-    }
-
     foreach(const QJsonValue &value, member_array) {
         QJsonObject json_member = value.toObject();
         QList<Client::roles_t> roles;
