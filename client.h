@@ -188,7 +188,7 @@ public:
         bool large;
         int member_count;
         QHash<QString, member_t> members;    // STRUCT
-        QList<channel_t> channels;    // STRUCT
+        QHash<QString, channel_t> channels;  // STRUCT
         int max_members;
         QString description;
     };

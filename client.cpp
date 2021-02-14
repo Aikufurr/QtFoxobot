@@ -557,7 +557,6 @@ void Client::create_guild(QJsonObject json_guild) {
         }
     }
 
-    QList<Client::channel_t> channels;
     foreach(const QJsonValue &value, json_channels) {
         QJsonObject json_channel = value.toObject();
         Client::channel_t channel;
@@ -589,10 +588,8 @@ void Client::create_guild(QJsonObject json_guild) {
         channel.parent_id = json_channel["parent_id"].toString();
 
 
-        channels.push_back(channel);
+        guild.channels[channel.id] = channel;
     }
-
-    guild.channels = channels;
 
     guilds[guild.id] = guild;
 }
@@ -1185,11 +1182,13 @@ void Client::MESSAGE_UPDATE(QJsonObject json_message) {
         return;
     }
 
+    Client::guild_t guild = this->getGuild(old_message.guild_id);
+
     Client::embed_t embed;
 
     embed.title = QString("Logging - Message Update");
 
-    embed.description = QString("Before: %1\n+After: %2").arg(old_message.content, new_message_content);
+    embed.description = QString("[#%1](%2)\nBefore: %3\n+After: %4").arg(guild.channels[old_message.channel_id].name, QString("https://discord.com/channels/%1/%2/%3").arg(old_message.guild_id, old_message.channel_id, old_message.id), old_message.content, new_message_content);
     embed.colour = -1; // FFB400 - Orange
 
     embed.author.name = old_message.author.username;
