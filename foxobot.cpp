@@ -31,7 +31,6 @@ foxobot::foxobot() {
     connect(client, SIGNAL(ready(QString)), this, SLOT(ready(QString)));
     connect(client, SIGNAL(message_create(Client::message_t *)), this, SLOT(message_create(Client::message_t *)));
     connect(client, SIGNAL(interaction_create(Client::interaction_t *)), this, SLOT(interaction_create(Client::interaction_t *)));
-    connect(client, SIGNAL(guild_member_update(Client::member_t *, Client::member_t *)), this, SLOT(guild_member_update(Client::member_t *, Client::member_t *)));
 }
 
 
@@ -369,8 +368,4 @@ void foxobot::create_slash_commands() {
         command.insert("options", options);
         client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
     }
-}
-
-void foxobot::guild_member_update(Client::member_t *old_member, Client::member_t *new_member) {
-    qDebug() << old_member->nick << new_member->nick; // roles too
 }

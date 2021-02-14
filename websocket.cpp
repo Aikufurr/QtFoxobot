@@ -86,14 +86,12 @@ void Websocket::onSocketTextMessageReceived(QString message) {
         }
 
         else if (payload["t"].toString() == "GUILD_MEMBER_ADD") {
-            qDebug() << payload;
             emit GUILD_MEMBER_ADD(payload["d"].toObject());
         }
         else if (payload["t"].toString() == "GUILD_MEMBER_UPDATE") {
             emit GUILD_MEMBER_UPDATE(payload["d"].toObject());
         }
         else if (payload["t"].toString() == "GUILD_MEMBER_REMOVE") {
-            qDebug() << payload;
             emit GUILD_MEMBER_REMOVE(payload["d"].toObject());
         }
 

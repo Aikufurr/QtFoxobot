@@ -1,7 +1,8 @@
 #include "cmd_settings.h"
 
 cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, DbManager *dbManager) {
-    if (!(interaction->member.permissions.toUInt() & 0x8)) {
+    if ((interaction->member.permissions.toUInt() & 0x8) == 0) {
+        client->send_message(interaction->channel_id, QString("<@%1>, Sorry, you need to be an administrator to use this command.").arg(interaction->member.user.id));
         return;
     }
 

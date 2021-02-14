@@ -29,7 +29,6 @@ private slots:
     void ready(QString name);
     void message_create(Client::message_t *message);
     void interaction_create(Client::interaction_t *interaction);
-    void guild_member_update(Client::member_t *old_member, Client::member_t *new_member);
 };
 
 #endif // DISCORDBOT_H

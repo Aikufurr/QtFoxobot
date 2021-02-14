@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <QDate>
 #include <QDateTime>
 #include <QDebug>
 #include <QHash>
@@ -10,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <QtMath>
 
 #include <QNetworkReply>
 #include <QtNetwork/QNetworkAccessManager>
@@ -56,7 +58,7 @@ public:
         bool mfa_enabled;
         QString username;
         bool verified;
-    } user;
+    };
 
     struct embed_field_t {
         QString name;
@@ -230,6 +232,7 @@ public:
 
     QString getAge(QDate then, QDate now);
     int DaysInMonth(QDate date);
+    QString getTime(QDateTime then, QDateTime now);
 
 private:
     Websocket *websocket = new Websocket("");
@@ -260,7 +263,6 @@ signals:
     void ready(QString);
     void message_create(Client::message_t *message);
     void interaction_create(Client::interaction_t *interaction);
-    void guild_member_update(Client::member_t *old_member, Client::member_t *new_member);
 };
 
 #endif // CLIENT_H

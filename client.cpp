@@ -32,14 +32,29 @@ QString Client::getAge(QDate then, QDate now) {
     QString output;
 
     if (years != 0) {
-        output += QString("%1 year%2, ").arg(QString::number(years), years == 1 ? "0" : "s");
+        output += QString("%1 year%2, ").arg(QString::number(years), years == 1 ? "" : "s");
     }
     if (months != 0) {
-        output += QString("%1 month%2, ").arg(QString::number(months), months == 1 ? "0" : "s");
+        output += QString("%1 month%2, ").arg(QString::number(months), months == 1 ? "" : "s");
     }
     if (days != 0) {
-        output += QString("%1 day%2").arg(QString::number(days), days == 1 ? "0" : "s");
+        output += QString("%1 day%2").arg(QString::number(days), days == 1 ? "" : "s");
     }
+
+    return output;
+}
+
+QString Client::getTime(QDateTime then, QDateTime now) {
+    qint64 seconds = now.toSecsSinceEpoch() - then.toSecsSinceEpoch();
+    int h = qFloor(seconds / 3600);
+    int m = qFloor(seconds % 36000 / 60);
+    int s = qFloor(seconds % 36000 % 60);
+
+    QString output;
+
+    output += h > 0 ? QString::number(h) + (h == 1 ? " hour, " : " hours, ") : "";
+    output += m > 0 ? QString::number(m) + (m == 1 ? " minute, " : " minutes, ") : "";
+    output += s > 0 ? QString::number(s) + (s == 1 ? " second" : " seconds") : "";
 
     return output;
 }
@@ -249,23 +264,6 @@ void Client::send_message(QString channel_id, QString content) {
 }
 
 void Client::send_message(QString channel_id, QString content, embed_t embed) {
-    qDebug() << "Sending message to" << channel_id;
-    //    QNetworkAccessManager * manager = new QNetworkAccessManager(this);
-
-    //    QUrl url(QString("https://discord.com/api/channels/%1/messages").arg(channel_id));
-    //    QNetworkRequest request(url);
-
-    //    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    //    request.setHeader(QNetworkRequest::UserAgentHeader, "DiscordBot/1.0 (windows)");
-    //    request.setRawHeader("Authorization", "Bot ODA1Nzg4MzE4MTQyNjkzMzg2.YBf-2Q.7_kYeO5QY5W7Vu9V8GUsekPexH4");
-
-    //    QUrlQuery params;
-    //    params.addQueryItem("content", content);
-
-    //    connect(manager, SIGNAL(finished(QNetworkReply *)), this, SLOT(replyFinished(QNetworkReply *)));
-
-    //    manager->post(request, params.query().toUtf8());
-
     QNetworkAccessManager *mgr = new QNetworkAccessManager(this);
     const QUrl url(QString("https://discord.com/api/channels/%1/messages").arg(channel_id));
     QNetworkRequest request(url);
@@ -322,6 +320,7 @@ void Client::send_message(QString channel_id, QString content, embed_t embed) {
     QByteArray data = doc.toJson(QJsonDocument::Compact);
 
     QNetworkReply *reply = mgr->post(request, data);
+    qDebug() << "Sending message to" << channel_id << "...";
 
     QObject::connect(reply, &QNetworkReply::finished, [=](){
         if(reply->error() == QNetworkReply::NoError){
@@ -441,18 +440,17 @@ void Client::send_file_message(QString channel_id, QByteArray _file, embed_t emb
 // SLOTS
 void Client::READY(QJsonObject response) {
     QJsonObject userResponse = response["user"].toObject();
-    user.avatar = userResponse["avatar"].toString();
-    user.bot = userResponse["bot"].toBool();
-    user.discriminator = userResponse["discriminator"].toString();
-    user.flags = userResponse["flags"].toInt();
-    user.id = userResponse["id"].toString();
-    user.mfa_enabled= userResponse["mfa_enabled"].toBool();
-    user.username = userResponse["username"].toString();
-    user.verified = userResponse["verified"].toBool();
-    me = user;
-    users[user.id] = user;
-    qDebug() << "{Client::ready} Loaded" << user.username;
-    emit ready(user.username);
+    me.avatar = userResponse["avatar"].toString();
+    me.bot = userResponse["bot"].toBool();
+    me.discriminator = userResponse["discriminator"].toString();
+    me.flags = userResponse["flags"].toInt();
+    me.id = userResponse["id"].toString();
+    me.mfa_enabled= userResponse["mfa_enabled"].toBool();
+    me.username = userResponse["username"].toString();
+    me.verified = userResponse["verified"].toBool();
+    users[me.id] = me;
+    qDebug() << "{Client::ready} Loaded" << me.username;
+    emit ready(me.username);
 }
 
 Client::user_t Client::getMe() {
@@ -828,7 +826,6 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
     interaction.token = json_interaction["token"].toString();
     interaction.type = json_interaction["type"].toInt();
 
-    Client::guild_t guild = getGuild(interaction.guild_id);
 
     interaction.command = json_interaction["data"].toObject()["name"].toString();
 
@@ -856,50 +853,72 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
     }
 
     QJsonObject json_member = json_interaction["member"].toObject();
-    QList<Client::roles_t> roles;
-    Client::member_t member;
-    Client::user_t user;
 
-    user.avatar = json_member["user"].toObject()["avatar"].toString();
-    user.bot = json_member["user"].toObject()["bot"].toBool();
-    user.discriminator = json_member["user"].toObject()["discriminator"].toString();
-    user.flags = json_member["user"].toObject()["flags"].toInt();
-    user.id = json_member["user"].toObject()["id"].toString();
-    user.mfa_enabled = json_member["user"].toObject()["mfa_enabled"].toBool();
-    user.username = json_member["user"].toObject()["username"].toString();
-    user.verified = json_member["user"].toObject()["verified"].toBool();
-    users[user.id] = user;
-    member.user = user;
+    interaction.member = this->getMember(json_member["user"].toObject()["id"].toString(), interaction.guild_id);
+    interaction.member.permissions = json_interaction["member"].toObject()["permissions"].toString();
 
-    member.nick = json_member["nick"].toString().isNull() ? "" : json_member["nick"].toString();
+    Client::guild_t guild = getGuild(interaction.guild_id);
+    guild.members[interaction.member.user.id] = interaction.member;
+    guild.member_count = guild.members.size();
+    guilds[guild.id] = guild;
 
-    QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
-    foreach(const QJsonValue &roleValue, json_member["roles"].toArray()) {
-        QJsonObject json_role = roleValue.toObject();
-        Client::roles_t role;
+    emit interaction_create(&interaction);
 
-        for ( ; it != guild.roles.constEnd(); ++it ) {
-            const Client::roles_t &roleIT= *it;
-            if (roleIT.id == json_role["id"].toString()) {
-                role = roleIT;
-                roles.push_back(role);
-                break;
+    QString channel_id = dbmanager->setting_get(interaction.guild_id, "logging", "bind");
+    QString enabled = dbmanager->setting_get(interaction.guild_id, "logging", "interaction");
+    if (channel_id == "" || enabled == "0" || enabled == "" || interaction.member.user.bot == true) {
+        return;
+    }
+
+    Client::embed_t embed;
+    embed.description = QString("Command: %1").arg(interaction.command);
+
+    QList<Client::embed_field_t> fields;
+    if (interaction.options.size() > 0 || interaction.sub_options.size() > 0) {
+
+        Client::embed_field_t field;
+        field.name = "Arguments";
+        QString output;
+
+        if (interaction.options.size() > 0) {
+            QHash<QString, QString>::const_iterator i = interaction.options.constBegin();
+            while (i != interaction.options.constEnd()) {
+                output += QString("%1: %2\n").arg(i.key(), i.value());
+                i++;
             }
         }
-    }
-    member.roles = roles;
-    member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
-    member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
-    member.permissions = json_member["permissions"].toString();
+        if (interaction.sub_options.size() > 0) {
+            QHash<QString, QString>::const_iterator i = interaction.sub_options.constBegin();
+            while (i != interaction.sub_options.constEnd()) {
+                output += QString("%1: %2\n").arg(i.key(), i.value());
+                i++;
+            }
+        }
 
-    interaction.member = member;
-    emit interaction_create(&interaction);
+        field.value = output;
+        field.is_inline = true;
+        fields.push_back(field);
+    }
+
+    embed.fields = fields;
+
+    embed.colour = -1; // FFB400 - Orange
+
+    embed.title = QString("Logging - Interaction");
+
+
+    embed.author.name = interaction.member.user.username;
+    if (interaction.member.user.avatar.isNull()) {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction.member.user.discriminator.toInt() % 5));
+    } else {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction.member.user.id, interaction.member.user.avatar);
+    }
+    this->send_message(channel_id, "", embed);
 }
 
 
+
 // Logging / Event updates
-
-
 
 // GUILD_MEMBER_ADD
 void Client::GUILD_MEMBER_ADD(QJsonObject json_member) {
@@ -959,7 +978,11 @@ void Client::GUILD_MEMBER_ADD(QJsonObject json_member) {
     QDateTime now;
     now.setMSecsSinceEpoch(QDateTime::currentMSecsSinceEpoch());
 
-    description += QString("\nAccount created %1 ago").arg(this->getAge(then.date(), now.date())); // Date
+    if (then.daysTo(now) == 0) {
+        description += QString("\nAccount created %1 ago").arg(this->getTime(then, now)); // Time
+    } else {
+        description += QString("\nAccount created %1 ago").arg(this->getAge(then.date(), now.date())); // Date
+    }
 
     embed.description = description;
 
@@ -974,7 +997,7 @@ void Client::GUILD_MEMBER_ADD(QJsonObject json_member) {
     this->send_message(channel_id, "", embed);
 }
 
-// GUILD_MEMBER_UPDATE - CHANGE TO LOG
+// GUILD_MEMBER_UPDATE
 void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
     Client::member_t new_member;
     Client::user_t user;
@@ -1027,7 +1050,19 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
     if (new_member.nick != old_member.nick) {
         Client::embed_field_t field;
         field.name = "Nickname";
-        field.value = QString("Before: %1\n+After: %1").arg(old_member.nick, new_member.nick);
+        QString value = "Before: ";
+        if (old_member.nick.isEmpty()) {
+            value += "[None]";
+        } else {
+            value += old_member.nick;
+        }
+        value += "\nAfter: ";
+        if (new_member.nick.isEmpty()) {
+            value += "[None]";
+        } else {
+            value += new_member.nick;
+        }
+        field.value = value;
         field.is_inline = true;
         fields.push_back(field);
     }
@@ -1058,13 +1093,17 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
         foreach (const QString &newRoleName, subtraction) {
             foreach(const Client::roles_t role, roles) {
                 if (role.name == newRoleName) {
-                    field_value += QString("<@&%1>").arg(role.id);
+                    field_value += QString("<@&%1> ").arg(role.id);
                 }
             }
         }
         field.value = field_value;
         field.is_inline = true;
         fields.push_back(field);
+    }
+
+    if (fields.size() == 0) {
+        return;
     }
 
     embed.fields = fields;
@@ -1078,12 +1117,86 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
         embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(user.id, user.avatar);
     }
     this->send_message(channel_id, "", embed);
-    emit guild_member_update(&old_member, &new_member);
 }
 
 // GUILD_MEMBER_REMOVE
 void Client::GUILD_MEMBER_REMOVE(QJsonObject json_member) {
+    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
 
+    if (!guild.members.contains(json_member["user"].toObject()["id"].toString())) {
+        return;
+    }
+
+    Client::member_t old_member = guild.members[json_member["user"].toObject()["id"].toString()];
+
+    guild.members.remove(old_member.user.id); // or .erase idk which one to use
+    guild.member_count = guild.members.size();
+    guilds[guild.id] = guild;
+
+    QString channel_id = dbmanager->setting_get(guild.id, "logging", "bind");
+    QString enabled = dbmanager->setting_get(guild.id, "logging", "member_remove");
+    if (channel_id == "" || enabled == "0" || enabled == "" || (old_member.user.bot == true && dbmanager->setting_get(guild.id, "logging", "member_remove-bots") == "0")) {
+        return;
+    }
+
+    Client::embed_t embed;
+
+    embed.title = QString("Logging - Member Remove");
+
+    QList<Client::embed_field_t> fields;
+
+    {
+        Client::embed_field_t field;
+        field.name = "Nickname";
+        field.value = old_member.nick.isEmpty() ? "[None]" : old_member.nick;
+        field.is_inline = true;
+        fields.push_back(field);
+    }
+
+    {
+        Client::embed_field_t field;
+        field.name = "Roles";
+
+        QString field_value;
+        if (old_member.roles.size() > 0) {
+            foreach(const Client::roles_t role, old_member.roles) {
+                field_value += QString("<@&%1> ").arg(role.id);
+            }
+        } else {
+            field_value = "[None]";
+        }
+        field.value = field_value;
+        field.is_inline = true;
+        fields.push_back(field);
+    }
+
+    {
+        Client::embed_field_t field;
+
+        QDateTime then = old_member.joined_at;
+        QDateTime now;
+        now.setMSecsSinceEpoch(QDateTime::currentMSecsSinceEpoch());
+
+        field.name = "Joined the guild";
+        if (then.daysTo(now) == 0) {
+            field.value = QString("%1 ago").arg(this->getTime(then, now));
+        } else {
+            field.value = QString("%1 ago").arg(this->getAge(then.date(), now.date()));
+        }
+        fields.push_back(field);
+    }
+
+    embed.fields = fields;
+
+    embed.colour = -1; // FFB400 - Orange
+
+    embed.author.name = old_member.user.username;
+    if (old_member.user.avatar.isNull()) {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(old_member.user.discriminator.toInt() % 5));
+    } else {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(old_member.user.id, old_member.user.avatar);
+    }
+    this->send_message(channel_id, "", embed);
 }
 
 
@@ -1125,7 +1238,7 @@ void Client::MESSAGE_DELETE(QJsonObject json_message) {
     }
 
     Client::embed_t embed;
-    embed.description = QString("Content: %2").arg(old_message.content);
+    embed.description = QString("Content: %1").arg(old_message.content);
 
     QList<Client::attachment_t> attachments = old_message.attachments;
 
