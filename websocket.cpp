@@ -72,21 +72,40 @@ void Websocket::onSocketTextMessageReceived(QString message) {
             QJsonObject response;
             response.insert("user", payload["d"].toObject()["user"]);
             emit READY(response);
-        } else if (payload["t"].toString() == "GUILD_CREATE") {
-            emit GUILD_CREATE(payload["d"].toObject());
-        } else if (payload["t"].toString() == "MESSAGE_CREATE") {
-            emit MESSAGE_CREATE(payload["d"].toObject());
-        } else if (payload["t"].toString() == "INTERACTION_CREATE") {
+        }
+
+        else if (payload["t"].toString() == "INTERACTION_CREATE") {
             emit INTERACTION_CREATE(payload["d"].toObject());
-        } else if (payload["t"].toString() == "GUILD_MEMBER_UPDATE") {
-            emit GUILD_MEMBER_UPDATE(payload["d"].toObject());
+        }
+
+
+        else if (payload["t"].toString() == "GUILD_CREATE") {
+            emit GUILD_CREATE(payload["d"].toObject());
         } else if (payload["t"].toString() == "GUILD_UPDATE") {
             emit GUILD_UPDATE(payload["d"].toObject());
+        }
+
+        else if (payload["t"].toString() == "GUILD_MEMBER_ADD") {
+            qDebug() << payload;
+            emit GUILD_MEMBER_ADD(payload["d"].toObject());
+        }
+        else if (payload["t"].toString() == "GUILD_MEMBER_UPDATE") {
+            emit GUILD_MEMBER_UPDATE(payload["d"].toObject());
+        }
+        else if (payload["t"].toString() == "GUILD_MEMBER_REMOVE") {
+            qDebug() << payload;
+            emit GUILD_MEMBER_REMOVE(payload["d"].toObject());
+        }
+
+        else if (payload["t"].toString() == "MESSAGE_CREATE") {
+            emit MESSAGE_CREATE(payload["d"].toObject());
         } else if (payload["t"].toString() == "MESSAGE_UPDATE") {
             emit MESSAGE_UPDATE(payload["d"].toObject());
         } else if (payload["t"].toString() == "MESSAGE_DELETE") {
             emit MESSAGE_DELETE(payload["d"].toObject());
-        } else {
+        }
+
+        else {
             qDebug() << payload;
         }
         break;

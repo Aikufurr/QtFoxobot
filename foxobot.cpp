@@ -284,6 +284,14 @@ void foxobot::create_slash_commands() {
                     sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
                     sub_cmd_options_options.push_back(sub_cmd_option);
                 }
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "bots");
+                    sub_cmd_option.insert("description", "Should bots be counted");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
                 sub_cmd_options.insert("options", sub_cmd_options_options);
                 sub_options.push_back(sub_cmd_options);
             }
@@ -301,6 +309,14 @@ void foxobot::create_slash_commands() {
                     sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
                     sub_cmd_options_options.push_back(sub_cmd_option);
                 }
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "bots");
+                    sub_cmd_option.insert("description", "Should bots be counted");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
                 sub_cmd_options.insert("options", sub_cmd_options_options);
                 sub_options.push_back(sub_cmd_options);
             }
@@ -315,6 +331,14 @@ void foxobot::create_slash_commands() {
                     sub_cmd_option.insert("name", "enabled");
                     sub_cmd_option.insert("description", "Enable or disable this log type");
                     sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "bots");
+                    sub_cmd_option.insert("description", "Should bots be counted");
+                    sub_cmd_option.insert("required", false);
                     sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
                     sub_cmd_options_options.push_back(sub_cmd_option);
                 }

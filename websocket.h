@@ -58,11 +58,17 @@ private slots:
 
 signals:
     void READY(QJsonObject);
-    void GUILD_CREATE(QJsonObject);
-    void MESSAGE_CREATE(QJsonObject);
+
     void INTERACTION_CREATE(QJsonObject);
-    void GUILD_MEMBER_UPDATE(QJsonObject);
+
+    void GUILD_CREATE(QJsonObject);
     void GUILD_UPDATE(QJsonObject);
+
+    void GUILD_MEMBER_ADD(QJsonObject);
+    void GUILD_MEMBER_UPDATE(QJsonObject);
+    void GUILD_MEMBER_REMOVE(QJsonObject);
+
+    void MESSAGE_CREATE(QJsonObject);
     void MESSAGE_UPDATE(QJsonObject);
     void MESSAGE_DELETE(QJsonObject);
 };

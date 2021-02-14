@@ -109,6 +109,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             if (old_state == "0" && enabled == "0") {
                 client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
             } else if (dbManager->setting_set(interaction->guild_id, "logging", "member_add", enabled)) {
+                dbManager->setting_set(interaction->guild_id, "logging", "member_add-bots", interaction->sub_options["enabled"]);
                 Client::embed_t embed;
 
                 embed.title = QString("Settings - Logging - Member Add");
@@ -135,6 +136,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             if (old_state == "0" && enabled == "0") {
                 client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
             } else if (dbManager->setting_set(interaction->guild_id, "logging", "member_update", enabled)) {
+                dbManager->setting_set(interaction->guild_id, "logging", "member_update-bots", interaction->sub_options["enabled"]);
                 Client::embed_t embed;
 
                 embed.title = QString("Settings - Logging - Member Update");
@@ -161,6 +163,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             if (old_state == "0" && enabled == "0") {
                 client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
             } else if (dbManager->setting_set(interaction->guild_id, "logging", "member_remove", enabled)) {
+                dbManager->setting_set(interaction->guild_id, "logging", "member_remove-bots", interaction->sub_options["enabled"]);
                 Client::embed_t embed;
 
                 embed.title = QString("Settings - Logging - Member Remove");

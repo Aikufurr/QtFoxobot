@@ -203,11 +203,11 @@ public:
         QString token;      // Continuation token
 
         // Data
-        QString command;    // data->name           // settings
-        QHash<QString, QString> options;            // unused
-        QString sub_group;                          // logging
-        QString sub_option;                         // bind
-        QHash<QString, QString> sub_options;        // ["channel"] => 1234 or .size() == 0 for nothing
+        QString command;    // data->name           // rank                 settings
+        QHash<QString, QString> options;            // ["user"] => 1234     unused
+        QString sub_group;                          // unused               logging
+        QString sub_option;                         // unused               bind
+        QHash<QString, QString> sub_options;        // unused               ["channel"] => 1234 or .size() == 0 for nothing
     };
 
     QString token;
@@ -228,6 +228,9 @@ public:
     DbManager *dbmanager;
     user_t getMe();
 
+    QString getAge(QDate then, QDate now);
+    int DaysInMonth(QDate date);
+
 private:
     Websocket *websocket = new Websocket("");
     QHash<QString, guild_t> guilds;
@@ -241,9 +244,12 @@ private slots:
 
     void INTERACTION_CREATE(QJsonObject interaction);
 
-    void GUILD_MEMBER_UPDATE(QJsonObject member);
     void GUILD_CREATE(QJsonObject guild);
     void GUILD_UPDATE(QJsonObject guild);
+
+    void GUILD_MEMBER_ADD(QJsonObject member);
+    void GUILD_MEMBER_UPDATE(QJsonObject member);
+    void GUILD_MEMBER_REMOVE(QJsonObject member);
 
     void MESSAGE_CREATE(QJsonObject message);
     void MESSAGE_UPDATE(QJsonObject message);

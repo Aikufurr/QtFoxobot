@@ -6,17 +6,61 @@ Client::Client(QString _application_id, DbManager *_dbmanager) {
     dbmanager = _dbmanager;
 }
 
+int Client::DaysInMonth(QDate date) {
+    QDateTime monthStart(QDate(date.year(), date.month(), 1));
+    QDateTime monthEnd(QDate(date.year(), date.month() + 1, 1));
+    int monthLength = (monthEnd.toMSecsSinceEpoch() - monthStart.toMSecsSinceEpoch()) / (1000 * 60 * 60 * 24);
+    return monthLength;
+}
+
+QString Client::getAge(QDate then, QDate now) {
+    //--------------------------------------------------------------
+    int days = now.day() - then.day();
+    if (days < 0) {
+        now.setDate(now.year(), now.month()-1, now.day());
+        days += this->DaysInMonth(now);
+    }
+    //--------------------------------------------------------------
+    int months = now.month() - then.month();
+    if (months < 0) {
+        now.setDate(now.year()-1, now.month(), now.day());
+        months += 12;
+    }
+    //--------------------------------------------------------------
+    int years = now.year() - then.year();
+
+    QString output;
+
+    if (years != 0) {
+        output += QString("%1 year%2, ").arg(QString::number(years), years == 1 ? "0" : "s");
+    }
+    if (months != 0) {
+        output += QString("%1 month%2, ").arg(QString::number(months), months == 1 ? "0" : "s");
+    }
+    if (days != 0) {
+        output += QString("%1 day%2").arg(QString::number(days), days == 1 ? "0" : "s");
+    }
+
+    return output;
+}
+
 void Client::login(QString _token) {
     token = _token;
 
     websocket = new Websocket(token);
 
     connect(websocket, SIGNAL(READY(QJsonObject)), this, SLOT(READY(QJsonObject)));
-    connect(websocket, SIGNAL(GUILD_CREATE(QJsonObject)), this, SLOT(GUILD_CREATE(QJsonObject)));
-    connect(websocket, SIGNAL(MESSAGE_CREATE(QJsonObject)), this, SLOT(MESSAGE_CREATE(QJsonObject)));
+
     connect(websocket, SIGNAL(INTERACTION_CREATE(QJsonObject)), this, SLOT(INTERACTION_CREATE(QJsonObject)));
-    connect(websocket, SIGNAL(GUILD_MEMBER_UPDATE(QJsonObject)), this, SLOT(GUILD_MEMBER_UPDATE(QJsonObject)));
+
+    connect(websocket, SIGNAL(GUILD_CREATE(QJsonObject)), this, SLOT(GUILD_CREATE(QJsonObject)));
     connect(websocket, SIGNAL(GUILD_UPDATE(QJsonObject)), this, SLOT(GUILD_UPDATE(QJsonObject)));
+
+    connect(websocket, SIGNAL(GUILD_MEMBER_ADD(QJsonObject)), this, SLOT(GUILD_MEMBER_ADD(QJsonObject)));
+    connect(websocket, SIGNAL(GUILD_MEMBER_UPDATE(QJsonObject)), this, SLOT(GUILD_MEMBER_UPDATE(QJsonObject)));
+    connect(websocket, SIGNAL(GUILD_MEMBER_REMOVE(QJsonObject)), this, SLOT(GUILD_MEMBER_REMOVE(QJsonObject)));
+
+    connect(websocket, SIGNAL(MESSAGE_CREATE(QJsonObject)), this, SLOT(MESSAGE_CREATE(QJsonObject)));
     connect(websocket, SIGNAL(MESSAGE_UPDATE(QJsonObject)), this, SLOT(MESSAGE_UPDATE(QJsonObject)));
     connect(websocket, SIGNAL(MESSAGE_DELETE(QJsonObject)), this, SLOT(MESSAGE_DELETE(QJsonObject)));
 
@@ -464,7 +508,7 @@ void Client::create_guild(QJsonObject json_guild) {
                 request.setRawHeader("Authorization", QString("Bot %1").arg(token).toUtf8());
                 QNetworkReply *reply = NAManager.get(request);
                 QEventLoop eventLoop;
-                QObject::connect(reply, SIGNAL(finished()), &eventLoop, SLOT(quit()));
+                QObject::connect(reply, SIGNAL(finished()), &eventLoop, SLOT(quit())); // 48- bug
                 eventLoop.exec();
                 QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
                 QJsonArray payload = jsonResponse.array();
@@ -499,13 +543,12 @@ void Client::create_guild(QJsonObject json_guild) {
         member.nick = json_member["nick"].toString().isNull() ? "" : json_member["nick"].toString();
 
         QList<Client::roles_t>::ConstIterator it = guild.roles.constBegin();
-        foreach(const QJsonValue &roleValue, json_guild["roles"].toArray()) {
-            QJsonObject json_role = roleValue.toObject();
+        foreach(const QJsonValue &roleValue, json_member["roles"].toArray()) {
             Client::roles_t role;
 
             for ( ; it != guild.roles.constEnd(); ++it ) {
                 const Client::roles_t &roleIT= *it;
-                if (roleIT.id == json_role["id"].toString()) {
+                if (roleIT.id == roleValue.toString()) {
                     role = roleIT;
                     roles.push_back(role);
                     break;
@@ -518,6 +561,7 @@ void Client::create_guild(QJsonObject json_guild) {
         member.permissions = json_member["permissions"].toString();
 
         guild.members[user.id] = member;
+        guild.member_count = guild.members.size();
     }
 
 
@@ -681,50 +725,10 @@ Client::member_t Client::getMember(QString user_id, QString guild_id) {
         member.premium_since = QDateTime::fromString(payload["premium_since"].toString(), Qt::ISODate);
 
         guild.members[user.id] = member;
+        guild.member_count = guild.members.size();
         guilds[guild.id] = guild;
         return member;
     }
-}
-
-
-void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
-    Client::member_t new_member;
-    Client::user_t user;
-
-    user.avatar = json_member["user"].toObject()["avatar"].toString();
-    user.discriminator = json_member["user"].toObject()["discriminator"].toString();
-    user.id = json_member["user"].toObject()["id"].toString();
-    user.flags = json_member["user"].toObject()["public_flags"].toInt();
-    user.username = json_member["user"].toObject()["username"].toString();
-    user.bot = json_member["user"].toObject()["bot"].toBool();
-    users[user.id] = user;
-    new_member.user = user;
-    new_member.nick = json_member["nick"].toString();
-
-    QList<Client::roles_t> roles;
-    foreach(const QJsonValue &value, json_member["roles"].toArray()) {
-        QList<Client::roles_t>::ConstIterator it = this->getGuild(json_member["guild_id"].toString()).roles.constBegin();
-        for ( ; it != this->getGuild(json_member["guild_id"].toString()).roles.constEnd(); ++it ) {
-            const Client::roles_t &role = *it;
-
-            if (value.toString() == role.id) {
-                roles.push_back(role);
-                break;
-            }
-        }
-    }
-    new_member.roles = roles;
-    new_member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
-    new_member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
-
-
-    Client::member_t old_member = this->getMember(user.id, json_member["guild_id"].toString());
-
-    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
-    guild.members[user.id] = new_member;
-    guilds[guild.id] = guild;
-    qDebug() << "{Client}" << old_member.nick << new_member.nick;
-    emit guild_member_update(&old_member, &new_member);
 }
 
 void Client::MESSAGE_CREATE(QJsonObject json_message) {
@@ -895,11 +899,203 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
 
 // Logging / Event updates
 
+
+
+// GUILD_MEMBER_ADD
+void Client::GUILD_MEMBER_ADD(QJsonObject json_member) {
+    Client::member_t new_member;
+    Client::user_t user;
+
+    user.avatar = json_member["user"].toObject()["avatar"].toString();
+    user.discriminator = json_member["user"].toObject()["discriminator"].toString();
+    user.id = json_member["user"].toObject()["id"].toString();
+    user.flags = json_member["user"].toObject()["public_flags"].toInt();
+    user.username = json_member["user"].toObject()["username"].toString();
+    user.bot = json_member["user"].toObject()["bot"].toBool();
+    users[user.id] = user;
+    new_member.user = user;
+    new_member.nick = json_member["nick"].toString();
+
+    QList<Client::roles_t> roles;
+    foreach(const QJsonValue &value, json_member["roles"].toArray()) {
+        QList<Client::roles_t>::ConstIterator it = this->getGuild(json_member["guild_id"].toString()).roles.constBegin();
+        for ( ; it != this->getGuild(json_member["guild_id"].toString()).roles.constEnd(); ++it ) {
+            const Client::roles_t &role = *it;
+
+            if (value.toString() == role.id) {
+                roles.push_back(role);
+                break;
+            }
+        }
+    }
+    new_member.roles = roles;
+    new_member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
+    new_member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
+
+    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
+    guild.members[user.id] = new_member;
+    guild.member_count = guild.members.size();
+    guilds[guild.id] = guild;
+
+    QString channel_id = dbmanager->setting_get(guild.id, "logging", "bind");
+    QString enabled = dbmanager->setting_get(guild.id, "logging", "member_add");
+    if (channel_id == "" || enabled == "0" || enabled == "" || (user.bot == true && dbmanager->setting_get(guild.id, "logging", "member_add-bots") == "0")) {
+        return;
+    }
+
+    Client::embed_t embed;
+
+    embed.title = QString("Logging - Member Add");
+
+    QString description = QString("<@%1> joined as the %2%3 member.").arg(user.id, QString::number(guild.member_count),
+                                                                          (QString::number(guild.member_count).endsWith("1") && guild.member_count != 11) ? "st" :
+                                                                                                                                                            (QString::number(guild.member_count).endsWith("2") && guild.member_count != 12) ? "nd" :
+                                                                                                                                                                                                                                              (QString::number(guild.member_count).endsWith("3") && guild.member_count != 13) ? "rd" : "th");
+    // End
+    quint64 snowflake = QString(user.id).toULongLong();
+
+    QDateTime then;
+    then.setMSecsSinceEpoch((snowflake >> 22) + 1420070400000);
+    QDateTime now;
+    now.setMSecsSinceEpoch(QDateTime::currentMSecsSinceEpoch());
+
+    description += QString("\nAccount created %1 ago").arg(this->getAge(then.date(), now.date())); // Date
+
+    embed.description = description;
+
+    embed.colour = -1; // FFB400 - Orange
+
+    embed.author.name = user.username;
+    if (user.avatar.isNull()) {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(user.discriminator.toInt() % 5));
+    } else {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(user.id, user.avatar);
+    }
+    this->send_message(channel_id, "", embed);
+}
+
+// GUILD_MEMBER_UPDATE - CHANGE TO LOG
+void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
+    Client::member_t new_member;
+    Client::user_t user;
+
+    user.avatar = json_member["user"].toObject()["avatar"].toString();
+    user.discriminator = json_member["user"].toObject()["discriminator"].toString();
+    user.id = json_member["user"].toObject()["id"].toString();
+    user.flags = json_member["user"].toObject()["public_flags"].toInt();
+    user.username = json_member["user"].toObject()["username"].toString();
+    user.bot = json_member["user"].toObject()["bot"].toBool();
+    users[user.id] = user;
+    new_member.user = user;
+    new_member.nick = json_member["nick"].toString();
+
+    QList<Client::roles_t> roles;
+    foreach(const QJsonValue &value, json_member["roles"].toArray()) {
+        QList<Client::roles_t>::ConstIterator it = this->getGuild(json_member["guild_id"].toString()).roles.constBegin();
+        for ( ; it != this->getGuild(json_member["guild_id"].toString()).roles.constEnd(); ++it ) {
+            const Client::roles_t &role = *it;
+
+            if (value.toString() == role.id) {
+                roles.push_back(role);
+                break;
+            }
+        }
+    }
+    new_member.roles = roles;
+    new_member.joined_at = QDateTime::fromString(json_member["joined_at"].toString(), Qt::ISODate);
+    new_member.premium_since = QDateTime::fromString(json_member["premium_since"].toString(), Qt::ISODate);
+
+    Client::member_t old_member = this->getMember(user.id, json_member["guild_id"].toString());
+
+    Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
+    guild.members[user.id] = new_member;
+    guild.member_count = guild.members.size();
+    guilds[guild.id] = guild;
+
+    QString channel_id = dbmanager->setting_get(guild.id, "logging", "bind");
+    QString enabled = dbmanager->setting_get(guild.id, "logging", "member_update");
+    if (channel_id == "" || enabled == "0" || enabled == "" || (user.bot == true && dbmanager->setting_get(guild.id, "logging", "member_add-bots") == "0")) {
+        return;
+    }
+
+    Client::embed_t embed;
+
+    embed.title = QString("Logging - Member Update");
+
+    QList<Client::embed_field_t> fields;
+
+    if (new_member.nick != old_member.nick) {
+        Client::embed_field_t field;
+        field.name = "Nickname";
+        field.value = QString("Before: %1\n+After: %1").arg(old_member.nick, new_member.nick);
+        field.is_inline = true;
+        fields.push_back(field);
+    }
+
+    if (old_member.roles.size() != new_member.roles.size()) {
+        Client::embed_field_t field;
+        field.name = QString("%1 Role").arg(old_member.roles.size() < new_member.roles.size() ? "New" : "Removed");
+
+        QStringList oldRoles;
+        foreach(const Client::roles_t role, old_member.roles) {
+            oldRoles.push_back(role.name);
+        }
+        QStringList newRoles;
+        foreach(const Client::roles_t role, new_member.roles) {
+            newRoles.push_back(role.name);
+        }
+        QSet<QString> subtraction;
+        QList<Client::roles_t> roles;
+        if (old_member.roles.size() < new_member.roles.size()) {
+            subtraction = newRoles.toSet().subtract(oldRoles.toSet());
+            roles = new_member.roles;
+        } else {
+            subtraction = oldRoles.toSet().subtract(newRoles.toSet());
+            roles = old_member.roles;
+        }
+
+        QString field_value;
+        foreach (const QString &newRoleName, subtraction) {
+            foreach(const Client::roles_t role, roles) {
+                if (role.name == newRoleName) {
+                    field_value += QString("<@&%1>").arg(role.id);
+                }
+            }
+        }
+        field.value = field_value;
+        field.is_inline = true;
+        fields.push_back(field);
+    }
+
+    embed.fields = fields;
+
+    embed.colour = -1; // FFB400 - Orange
+
+    embed.author.name = user.username;
+    if (user.avatar.isNull()) {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(user.discriminator.toInt() % 5));
+    } else {
+        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(user.id, user.avatar);
+    }
+    this->send_message(channel_id, "", embed);
+    emit guild_member_update(&old_member, &new_member);
+}
+
+// GUILD_MEMBER_REMOVE
+void Client::GUILD_MEMBER_REMOVE(QJsonObject json_member) {
+
+}
+
+
+// MESSAGE_CREATE - NOT USED
+
+// MESSAGE_UPDATE
 void Client::MESSAGE_UPDATE(QJsonObject json_message) {
     Client::message_t old_message = messages[json_message["id"].toString()];
     QString new_message_content = json_message["content"].toString();
     QString channel_id = dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "bind");
-    if (channel_id == "" || this->getUser(json_message["author"].toObject()["id"].toString()).bot == true || old_message.content == "") {
+    QString enabled = dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "message_update");
+    if (channel_id == "" || enabled == "0" || enabled == "" || this->getUser(json_message["author"].toObject()["id"].toString()).bot == true || old_message.content == "" || dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "message_update") == "0") {
         return;
     }
 
@@ -916,14 +1112,15 @@ void Client::MESSAGE_UPDATE(QJsonObject json_message) {
     } else {
         embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(old_message.author.id, old_message.author.avatar);
     }
-    this->send_message(channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+    this->send_message(channel_id, "", embed);
 }
 
-
+// MESSAGE_DELETE
 void Client::MESSAGE_DELETE(QJsonObject json_message) {
     Client::message_t old_message = messages[json_message["id"].toString()];
     QString channel_id = dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "bind");
-    if (channel_id == "" || this->getUser(json_message["author"].toObject()["id"].toString()).bot == true || (old_message.content == "" && old_message.attachments.size() == 0)) {
+    QString enabled = dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "message_delete");
+    if (channel_id == "" || enabled == "0" || enabled == "" || this->getUser(json_message["author"].toObject()["id"].toString()).bot == true || (old_message.content == "" && old_message.attachments.size() == 0)) {
         return;
     }
 
@@ -957,6 +1154,6 @@ void Client::MESSAGE_DELETE(QJsonObject json_message) {
     } else {
         embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(old_message.author.id, old_message.author.avatar);
     }
-    this->send_message(channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+    this->send_message(channel_id, "", embed);
 }
 
