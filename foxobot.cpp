@@ -8,6 +8,7 @@
 #include "commands/cmd_hello.h"
 #include "commands/cmd_leaderboard.h"
 #include "commands/cmd_rank.h"
+#include "commands/cmd_settings.h"
 
 foxobot::foxobot() {
     dbManager = new DbManager("./database.db");
@@ -25,26 +26,25 @@ foxobot::foxobot() {
 
     client->login(token);
 
-    this->create_slash_commands();
     //    client->getGateway();
 
     connect(client, SIGNAL(ready(QString)), this, SLOT(ready(QString)));
-    connect(client, SIGNAL(message_create(Client::message_t)), this, SLOT(message_create(Client::message_t)));
+    connect(client, SIGNAL(message_create(Client::message_t *)), this, SLOT(message_create(Client::message_t *)));
     connect(client, SIGNAL(interaction_create(Client::interaction_t *)), this, SLOT(interaction_create(Client::interaction_t *)));
-    connect(client, SIGNAL(guild_member_update(Client::member_t, Client::member_t *)), this, SLOT(guild_member_update(Client::member_t, Client::member_t *)));
 }
 
 
 void foxobot::ready(QString name) {
     qDebug() << "Logged in as" << name;
+    this->create_slash_commands();
 }
 
-void foxobot::message_create(Client::message_t message) {
-    qDebug() << "Received message from" << message.author.username << ":" << message.content;
-    if (message.author.bot) {
+void foxobot::message_create(Client::message_t *message) {
+    qDebug() << "Received message from" << message->author.username << ":" << message->content;
+    if (message->author.bot) {
         return;
     }
-    dbManager->rank_increment(message.author.id, message.guild_id);
+    dbManager->rank_increment(message->author.id, message->guild_id);
 }
 
 void foxobot::interaction_create(Client::interaction_t *interaction) {
@@ -68,6 +68,9 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
     } else if (interaction->command == "rank") {
         cmd_rank *cmd = new cmd_rank(client, interaction, dbManager);
         delete cmd;
+    } else if (interaction->command == "settings") {
+        cmd_settings *cmd = new cmd_settings(client, interaction, dbManager);
+        delete cmd;
     } else if (interaction->command == "close") {
         client->send_message(interaction->channel_id, "Goodbye.");
         delete dbManager;
@@ -78,7 +81,6 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
 
 void foxobot::create_slash_commands() {
     qDebug() << "Creating slash commands globally?" << (application_id != dev_application_id);
-
 
     {
         QJsonObject command;
@@ -128,7 +130,7 @@ void foxobot::create_slash_commands() {
     {
         QJsonObject command;
         command.insert("name", "hello");
-        command.insert("description", "Say hello to the bot");
+        command.insert("description", QString("Say hello to %1").arg(client->getMe().username));
         client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
     }
     {
@@ -205,8 +207,165 @@ void foxobot::create_slash_commands() {
         command.insert("options", options);
         client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
     }
-}
+    {
+        QJsonObject command;
+        command.insert("name", "settings");
+        command.insert("description", "Adjust the settings for the bot (Admin only)");
+        QJsonArray options;
+        {
+            QJsonObject option;
+            option.insert("name", "logging");
+            option.insert("description", "Adjust the logging settings");
+            option.insert("type", applicationCommandOptionType::SUB_COMMAND_GROUP);
+            QJsonArray sub_options;
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "bind");
+                sub_cmd_options.insert("description", "Binds the logging to a channel. If left blank it will unbind");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "channel");
+                    sub_cmd_option.insert("description", "The channel to bind to");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::CHANNEL);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "message_update");
+                sub_cmd_options.insert("description", "If a message contents have been edited");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "message_delete");
+                sub_cmd_options.insert("description", "If a message has been deleted");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "member_add");
+                sub_cmd_options.insert("description", "If a member has joined the server and display their info");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "bots");
+                    sub_cmd_option.insert("description", "Should bots be counted");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "member_update");
+                sub_cmd_options.insert("description", "If a member has been updated on the server");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "bots");
+                    sub_cmd_option.insert("description", "Should bots be counted");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "member_remove");
+                sub_cmd_options.insert("description", "If a member has left the server and display their info");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "bots");
+                    sub_cmd_option.insert("description", "Should bots be counted");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "interaction");
+                sub_cmd_options.insert("description", QString("If a member activated one of %1'%2 commands").arg(client->getMe().username, client->getMe().username.endsWith("s") ? "" : "s"));
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
 
-void foxobot::guild_member_update(Client::member_t old_member, Client::member_t *new_member) {
-    qDebug() << old_member.nick << new_member->nick;
+            option.insert("options", sub_options);
+            options.push_back(option);
+        }
+        command.insert("options", options);
+        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+    }
 }

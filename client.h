@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <QDate>
 #include <QDateTime>
 #include <QDebug>
 #include <QHash>
@@ -10,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <QtMath>
 
 #include <QNetworkReply>
 #include <QtNetwork/QNetworkAccessManager>
@@ -56,7 +58,7 @@ public:
         bool mfa_enabled;
         QString username;
         bool verified;
-    } user;
+    };
 
     struct embed_field_t {
         QString name;
@@ -110,7 +112,6 @@ public:
         QString filename;
         int size;
         QString url;
-        QString proxy_url;
         int height;
         int width;
     };
@@ -141,7 +142,7 @@ public:
         QDateTime edited_time;
         bool tts;
         bool mention_everyone;
-        QList<mention_t> mentions;
+        QList<user_t> mentions;
         QList<roles_t> mention_roles;
         QList<attachment_t> attachments;
         QList<embed_t> embeds;
@@ -204,8 +205,11 @@ public:
         QString token;      // Continuation token
 
         // Data
-        QString command;    // data->name
-        QHash<QString, QString> options;
+        QString command;    // data->name           // rank                 settings
+        QHash<QString, QString> options;            // ["user"] => 1234     unused
+        QString sub_group;                          // unused               logging
+        QString sub_option;                         // unused               bind
+        QHash<QString, QString> sub_options;        // unused               ["channel"] => 1234 or .size() == 0 for nothing
     };
 
     QString token;
@@ -224,26 +228,41 @@ public:
     member_t getMember(QString user_id, QString guild_id);
     void getGateway();
     DbManager *dbmanager;
+    user_t getMe();
+
+    QString getAge(QDate then, QDate now);
+    int DaysInMonth(QDate date);
+    QString getTime(QDateTime then, QDateTime now);
 
 private:
     Websocket *websocket = new Websocket("");
     QHash<QString, guild_t> guilds;
     QHash<QString, user_t> users;
+    QHash<QString, message_t> messages;
     void create_guild(QJsonObject json_guild);
+    user_t me;
 
 private slots:
     void READY(QJsonObject response);
-    void GUILD_CREATE(QJsonObject guild);
-    void MESSAGE_CREATE(QJsonObject message);
+
     void INTERACTION_CREATE(QJsonObject interaction);
+
+    void GUILD_CREATE(QJsonObject guild);
+    void GUILD_UPDATE(QJsonObject guild);
+
+    void GUILD_MEMBER_ADD(QJsonObject member);
     void GUILD_MEMBER_UPDATE(QJsonObject member);
+    void GUILD_MEMBER_REMOVE(QJsonObject member);
+
+    void MESSAGE_CREATE(QJsonObject message);
+    void MESSAGE_UPDATE(QJsonObject message);
+    void MESSAGE_DELETE(QJsonObject message);
 //    void replyFinished(QNetworkReply *);
 
 signals:
     void ready(QString);
-    void message_create(Client::message_t);
+    void message_create(Client::message_t *message);
     void interaction_create(Client::interaction_t *interaction);
-    void guild_member_update(Client::member_t old_member, Client::member_t *new_member);
 };
 
 #endif // CLIENT_H
