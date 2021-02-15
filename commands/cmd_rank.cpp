@@ -19,36 +19,33 @@ cmd_rank::cmd_rank(Client *client, Client::interaction_t *interaction, DbManager
     embed.title = QString("%1's Rank").arg(member.nick.isEmpty() ? member.user.username : member.nick);
     embed.colour = 16757760; // FFB400 - Orange
 
-    QList<Client::embed_field_t> fields;
-
     {
         Client::embed_field_t field;
         field.name = "Rank";
         field.value = QString("%1/%2").arg(QString::number(rank["position"].toInt()), QString::number(rank["count"].toInt()));
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
     {
         Client::embed_field_t field;
         field.name = "Messages Sent";
         field.value = QString::number(rank["rank"].toInt());
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
     if (rank["position"].toInt() == 1) {
         Client::embed_field_t field;
         field.name = QString("%1 are ranked 1st on this server!").arg(member.user.id == interaction->member.user.id ? "Congratulations! You" : "They");
         field.value = QString("%1").arg(member.user.id == interaction->member.user.id ? "Give yourself a pat on the back" : " ‍ ");
         field.is_inline = false;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     } else {
         Client::embed_field_t field;
         field.name = QString("To get to %1's rank of %2, %3 need %4 more message%6").arg(behind_member.nick.isEmpty() ? behind_member.user.username : behind_member.nick, QString::number(rank["behind_position"].toInt()), member.user.id == interaction->member.user.id ? "you" : "they", QString::number((rank["behind_rank"].toInt()-rank["rank"].toInt())+1), ((rank["behind_rank"].toInt()-rank["rank"].toInt())+1) != 1 ? "s" : "");
         field.value = " ‍ ";
         field.is_inline = false;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
-    embed.fields = fields;
     embed.author.name = QString("%1").arg(interaction->member.user.username);
     if (interaction->member.user.avatar.isNull()) {
         embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));

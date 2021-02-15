@@ -296,6 +296,11 @@ void Client::send_message(QString channel_id, QString content, embed_t embed) {
             json_thumbnail_url.insert("url", embed.thumbnail_url);
             json_embed.insert("thumbnail", json_thumbnail_url);
         }
+        if (!embed.image_url.isEmpty()) {
+            QJsonObject json_image_url;
+            json_image_url.insert("url", embed.image_url);
+            json_embed.insert("image", json_image_url);
+        }
         if (!embed.author.name.isEmpty()) {
             QJsonObject json_embed_author;
             json_embed_author.insert("name", embed.author.name);
@@ -769,16 +774,14 @@ void Client::MESSAGE_CREATE(QJsonObject json_message) {
         embed.image_url = json_embed["image"].toObject()["url"].toString();
         embed.thumbnail_url = json_embed["thumbnail"].toObject()["url"].toString();
 
-        QList<Client::embed_field_t> fields;
         foreach(const QJsonValue &value, json_embed["fields"].toArray()) {
             QJsonObject json_field = value.toObject();
             Client::embed_field_t field;
             field.is_inline = json_field["inline"].toBool();
             field.name = json_field["name"].toString();
             field.value = json_field["value"].toString();
-            fields.push_back(field);
+            embed.fields.push_back(field);
         }
-        embed.fields = fields;
         embeds.push_back(embed);
     }
     message.embeds = embeds;
@@ -811,14 +814,17 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
 
             interaction.sub_group = json_option["name"].toString();
             interaction.sub_option = json_option["options"].toArray().at(0).toObject()["name"].toString();
-            if (json_option["options"].toArray().at(0).toObject()["options"].toArray().at(0).toObject()["value"].type() == QJsonValue::Bool) {
-                interaction.sub_options[json_option["options"].toArray().at(0).toObject()["options"].toArray().at(0).toObject()["name"].toString()] =
-                        json_option["options"].toArray().at(0).toObject()["options"].toArray().at(0).toObject()["value"].toBool() ? "1" : "0";
-            } else if (json_option["options"].toArray().at(0).toObject()["options"].toArray().at(0).toObject()["value"].type() == QJsonValue::String) {
-                interaction.sub_options[json_option["options"].toArray().at(0).toObject()["options"].toArray().at(0).toObject()["name"].toString()] =
-                        json_option["options"].toArray().at(0).toObject()["options"].toArray().at(0).toObject()["value"].toString();
-            }
 
+            foreach(const QJsonValue &sub_option, json_option["options"].toArray().at(0).toObject()["options"].toArray()) {
+                QJsonObject json_sub_option = sub_option.toObject();
+                if (json_sub_option["value"].type() == QJsonValue::Bool) {
+                    interaction.sub_options[json_sub_option["name"].toString()] =
+                            json_sub_option["value"].toBool() ? "1" : "0";
+                } else if (json_sub_option["value"].type() == QJsonValue::String) {
+                    interaction.sub_options[json_sub_option["name"].toString()] =
+                            json_sub_option["value"].toString();
+                }
+            }
         }
     }
 
@@ -843,7 +849,6 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
     Client::embed_t embed;
     embed.description = QString("Command: %1").arg(interaction.command);
 
-    QList<Client::embed_field_t> fields;
     if (interaction.options.size() > 0 || interaction.sub_options.size() > 0) {
 
         Client::embed_field_t field;
@@ -867,10 +872,8 @@ void Client::INTERACTION_CREATE(QJsonObject json_interaction) {
 
         field.value = output;
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
-
-    embed.fields = fields;
 
     embed.colour = -1; // FFB400 - Orange
 
@@ -1015,8 +1018,6 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
 
     embed.title = QString("Logging - Member Update");
 
-    QList<Client::embed_field_t> fields;
-
     if (new_member.nick != old_member.nick) {
         Client::embed_field_t field;
         field.name = "Nickname";
@@ -1026,7 +1027,7 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
         } else {
             value += old_member.nick;
         }
-        value += "\nAfter: ";
+        value += "\n+After: ";
         if (new_member.nick.isEmpty()) {
             value += "[None]";
         } else {
@@ -1034,7 +1035,7 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
         }
         field.value = value;
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
 
     if (old_member.roles.size() != new_member.roles.size()) {
@@ -1069,14 +1070,12 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
         }
         field.value = field_value;
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
 
-    if (fields.size() == 0) {
+    if (embed.fields.size() == 0) {
         return;
     }
-
-    embed.fields = fields;
 
     embed.colour = -1; // FFB400 - Orange
 
@@ -1113,14 +1112,12 @@ void Client::GUILD_MEMBER_REMOVE(QJsonObject json_member) {
 
     embed.title = QString("Logging - Member Remove");
 
-    QList<Client::embed_field_t> fields;
-
     {
         Client::embed_field_t field;
         field.name = "Nickname";
         field.value = old_member.nick.isEmpty() ? "[None]" : old_member.nick;
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
 
     {
@@ -1137,7 +1134,7 @@ void Client::GUILD_MEMBER_REMOVE(QJsonObject json_member) {
         }
         field.value = field_value;
         field.is_inline = true;
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
 
     {
@@ -1153,10 +1150,8 @@ void Client::GUILD_MEMBER_REMOVE(QJsonObject json_member) {
         } else {
             field.value = QString("%1 ago").arg(this->getAge(then.date(), now.date()));
         }
-        fields.push_back(field);
+        embed.fields.push_back(field);
     }
-
-    embed.fields = fields;
 
     embed.colour = -1; // FFB400 - Orange
 
@@ -1178,9 +1173,10 @@ void Client::MESSAGE_UPDATE(QJsonObject json_message) {
     QString new_message_content = json_message["content"].toString();
     QString channel_id = dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "bind");
     QString enabled = dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "message_update");
-    if (channel_id == "" || enabled == "0" || enabled == "" || this->getUser(json_message["author"].toObject()["id"].toString()).bot == true || old_message.content == "" || dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "message_update") == "0") {
+    if (channel_id == "" || enabled == "0" || enabled == "" || old_message.author.bot == true || (old_message.content == "" && !messages.contains(old_message.id)) || dbmanager->setting_get(json_message["guild_id"].toString(), "logging", "message_update") == "0") {
         return;
     }
+
 
     Client::guild_t guild = this->getGuild(old_message.guild_id);
 
@@ -1188,7 +1184,20 @@ void Client::MESSAGE_UPDATE(QJsonObject json_message) {
 
     embed.title = QString("Logging - Message Update");
 
-    embed.description = QString("[#%1](%2)\nBefore: %3\n+After: %4").arg(guild.channels[old_message.channel_id].name, QString("https://discord.com/channels/%1/%2/%3").arg(old_message.guild_id, old_message.channel_id, old_message.id), old_message.content, new_message_content);
+    QString before;
+    if (old_message.content.isEmpty()) {
+        before = "[None]";
+    } else {
+        before = old_message.content;
+    }
+    QString after;
+    if (new_message_content.isEmpty()) {
+        after = "[None]";
+    } else {
+        after = new_message_content;
+    }
+
+    embed.description = QString("[#%1](%2)\nBefore: %3\n+After: %4").arg(guild.channels[old_message.channel_id].name, QString("https://discord.com/channels/%1/%2/%3").arg(old_message.guild_id, old_message.channel_id, old_message.id), before, after);
     embed.colour = -1; // FFB400 - Orange
 
     embed.author.name = old_message.author.username;
@@ -1214,7 +1223,6 @@ void Client::MESSAGE_DELETE(QJsonObject json_message) {
 
     QList<Client::attachment_t> attachments = old_message.attachments;
 
-    QList<Client::embed_field_t> fields;
 
     if (attachments.size() > 0) {
         foreach(const Client::attachment_t attachment, attachments) {
@@ -1222,11 +1230,9 @@ void Client::MESSAGE_DELETE(QJsonObject json_message) {
             field.name = attachment.filename;
             field.value = attachment.url;
             field.is_inline = true;
-            fields.push_back(field);
+            embed.fields.push_back(field);
         }
     }
-
-    embed.fields = fields;
 
     embed.colour = -1; // FFB400 - Orange
 

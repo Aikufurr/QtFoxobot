@@ -30,7 +30,6 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
     embed.description = QString("The top %1 member%2").arg(QString::number(amount), amount != 1 ? "s" : "");
     embed.colour = 16757760; // FFB400 - Orange
 
-    QList<Client::embed_field_t> fields;
     foreach(const QJsonValue &value, leaderboard) {
         QJsonObject result = value.toObject();
         Client:: member_t member = client->getMember(result["user_id"].toString(), interaction->guild_id);
@@ -39,10 +38,8 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
         field.name = QString("Rank %1").arg(QString::number(result["position"].toInt()));
         field.value = QString("**%1** %2 at %3 message%4").arg(member.nick.isEmpty() ? member.user.username : member.nick, member.nick.isEmpty() ? "" : QString("*%1*").arg(member.user.username), QString::number(result["rank"].toInt()), result["rank"].toInt() == 1 ? "" : "s");
         field.is_inline = false;
-        fields.push_back(field);
-
+        embed.fields.push_back(field);
     }
-    embed.fields = fields;
     embed.author.name = QString("%1").arg(interaction->member.user.username);
     if (interaction->member.user.avatar.isNull()) {
         embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
