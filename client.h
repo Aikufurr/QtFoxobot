@@ -70,6 +70,10 @@ public:
         QString name;
         QString icon_url;
     };
+    struct embed_footer_t {
+        QString text;
+        QString icon_url;
+    };
 
     struct embed_t {
         QString title;
@@ -78,8 +82,7 @@ public:
         QDateTime timestamp;
         int colour;
         embed_author_t author;
-        QString footer_icon_url;
-        QString footer_text;
+        embed_footer_t footer;
         QString image_url;
         QString thumbnail_url;
         QList<embed_field_t> fields;
@@ -205,11 +208,11 @@ public:
         QString token;      // Continuation token
 
         // Data
-        QString command;    // data->name           // rank                 settings
-        QHash<QString, QString> options;            // ["user"] => 1234     unused
-        QString sub_group;                          // unused               logging
-        QString sub_option;                         // unused               bind
-        QHash<QString, QString> sub_options;        // unused               ["channel"] => 1234 or .size() == 0 for nothing
+        QString command;    // data->name           // rank                 mod                     settings
+        QHash<QString, QString> options;            // ["user"] => 1234     unused                  unused
+        QString sub_group;                          // unused               purge                   logging
+        QString sub_option;                         // unused               unused                  bind
+        QHash<QString, QString> sub_options;        // unused               ["amount"] => 2-100     ["channel"] => 1234 or .size() == 0 for nothing
     };
 
     QString token;
@@ -234,12 +237,19 @@ public:
     int DaysInMonth(QDate date);
     QString getTime(QDateTime then, QDateTime now);
 
+    QHash<QString, message_t> getChannelMessages(QString channel_id);
+    QHash<QString, message_t> getChannelMessages(QString channel_id, int limit);
+
+    void deleteMessage(QString channel_id, QString message_id);
+    void bulkDelete(QString channel_id, QHash<QString, Client::message_t> message_ids, interaction_t *interaction);
+
 private:
     Websocket *websocket = new Websocket("");
     QHash<QString, guild_t> guilds;
     QHash<QString, user_t> users;
     QHash<QString, message_t> messages;
     void create_guild(QJsonObject json_guild);
+    Client::message_t create_message(QJsonObject json_message);
     user_t me;
 
 private slots:

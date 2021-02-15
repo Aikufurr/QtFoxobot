@@ -103,6 +103,32 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             } else {
                 client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
+        } else if (interaction->sub_option == "message_purge") {
+            QString enabled = interaction->sub_options["enabled"];
+            QString old_state = dbManager->setting_get(interaction->guild_id, "logging", "message_purge");
+
+            if (old_state == "0" && enabled == "0") {
+                client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
+            } else if (dbManager->setting_set(interaction->guild_id, "logging", "message_purge", enabled)) {
+                Client::embed_t embed;
+
+                embed.title = QString("Settings - Logging - Message Purge");
+
+                QString description = QString("Successfully %1abled").arg(enabled == "0" ? "dis" : "en");
+
+                embed.description = description;
+                embed.colour = 16757760; // FFB400 - Orange
+
+                embed.author.name = interaction->member.user.username;
+                if (interaction->member.user.avatar.isNull()) {
+                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                } else {
+                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                }
+                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+            } else {
+                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+            }
         } else if (interaction->sub_option == "member_add") {
             QString enabled = interaction->sub_options["enabled"];
             QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "0" : interaction->sub_options["bots"];
