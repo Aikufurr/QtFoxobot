@@ -57,7 +57,7 @@ cmd_info::cmd_info(Client *client, Client::interaction_t *interaction) {
         now.setMSecsSinceEpoch(QDateTime::currentMSecsSinceEpoch());
 
         field.name = "Account created";
-        field.value = then.toString(Qt::ISODate);
+        field.value = then.toString(Qt::ISODate).replace("T", " ");
         if (member.joined_at.daysTo(now) == 0) {
             field.value += QString("\n%1 ago").arg(client->getTime(then, now));
         } else {
@@ -73,7 +73,7 @@ cmd_info::cmd_info(Client *client, Client::interaction_t *interaction) {
         now.setMSecsSinceEpoch(QDateTime::currentMSecsSinceEpoch());
 
         field.name = "Joined the guild";
-        field.value = member.joined_at.toString(Qt::ISODate);
+        field.value = member.joined_at.toString(Qt::ISODate).replace("T", " ");
         if (member.joined_at.daysTo(now) == 0) {
             field.value += QString("\n%1 ago").arg(client->getTime(member.joined_at, now));
         } else {
