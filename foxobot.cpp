@@ -8,9 +8,11 @@
 #include "commands/cmd_coinflip.h"
 #include "commands/cmd_eight_ball.h"
 #include "commands/cmd_hello.h"
+#include "commands/cmd_info.h"
 #include "commands/cmd_leaderboard.h"
 #include "commands/cmd_rank.h"
 #include "commands/cmd_settings.h"
+#include "commands/cmd_mod.h"
 
 foxobot::foxobot() {
     dbManager = new DbManager("./database.db");
@@ -70,6 +72,9 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
     } else if (interaction->command == "hello") {
         cmd_hello *cmd = new cmd_hello(client, interaction);
         delete cmd;
+    } else if (interaction->command == "info") {
+        cmd_info *cmd = new cmd_info(client, interaction);
+        delete cmd;
     } else if (interaction->command == "leaderboard") {
         cmd_leaderboard *cmd = new cmd_leaderboard(client, interaction, dbManager);
         delete cmd;
@@ -78,6 +83,9 @@ void foxobot::interaction_create(Client::interaction_t *interaction) {
         delete cmd;
     } else if (interaction->command == "settings") {
         cmd_settings *cmd = new cmd_settings(client, interaction, dbManager);
+        delete cmd;
+    } else if (interaction->command == "mod") {
+        cmd_mod *cmd = new cmd_mod(client, interaction);
         delete cmd;
     } else if (interaction->command == "close") {
         client->send_message(interaction->channel_id, "Goodbye.");
@@ -161,6 +169,22 @@ void foxobot::create_slash_commands() {
         QJsonObject command;
         command.insert("name", "hello");
         command.insert("description", QString("Say hello to %1").arg(client->getMe().username));
+        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+    }
+    {
+        QJsonObject command;
+        command.insert("name", "info");
+        command.insert("description", "Displays basic user information");
+        QJsonArray options;
+        {
+            QJsonObject option;
+            option.insert("name", "user");
+            option.insert("description", "Display for another user");
+            option.insert("required", false);
+            option.insert("type", applicationCommandOptionType::USER);
+            options.push_back(option);
+        }
+        command.insert("options", options);
         client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
     }
     {
@@ -301,6 +325,23 @@ void foxobot::create_slash_commands() {
             }
             {
                 QJsonObject sub_cmd_options;
+                sub_cmd_options.insert("name", "message_purge");
+                sub_cmd_options.insert("description", "When a set of messages are purged");
+                sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
+                QJsonArray sub_cmd_options_options;
+                {
+                    QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "enabled");
+                    sub_cmd_option.insert("description", "Enable or disable this log type");
+                    sub_cmd_option.insert("required", true);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                sub_cmd_options.insert("options", sub_cmd_options_options);
+                sub_options.push_back(sub_cmd_options);
+            }
+            {
+                QJsonObject sub_cmd_options;
                 sub_cmd_options.insert("name", "member_add");
                 sub_cmd_options.insert("description", "If a member has joined the server and display their info");
                 sub_cmd_options.insert("type", applicationCommandOptionType::SUB_COMMAND);
@@ -392,6 +433,31 @@ void foxobot::create_slash_commands() {
                 sub_options.push_back(sub_cmd_options);
             }
 
+            option.insert("options", sub_options);
+            options.push_back(option);
+        }
+        command.insert("options", options);
+        client->create_slash_command(command, application_id == dev_application_id ? dev_guild_id : "");
+    }
+    {
+        QJsonObject command;
+        command.insert("name", "mod");
+        command.insert("description", "Moderation commands (Admin only)");
+        QJsonArray options;
+        {
+            QJsonObject option;
+            option.insert("name", "purge");
+            option.insert("description", "Bulk delete a certain amount of messages (2-100)");
+            option.insert("type", applicationCommandOptionType::SUB_COMMAND);
+            QJsonArray sub_options;
+            {
+                QJsonObject sub_option;
+                sub_option.insert("name", "amount");
+                sub_option.insert("description", "How many messages to delete (2-100)");
+                sub_option.insert("required", true);
+                sub_option.insert("type", applicationCommandOptionType::INTEGER);
+                sub_options.push_back(sub_option);
+            }
             option.insert("options", sub_options);
             options.push_back(option);
         }

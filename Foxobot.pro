@@ -16,7 +16,9 @@ SOURCES += \
         commands/cmd_coinflip.cpp \
         commands/cmd_eight_ball.cpp \
         commands/cmd_hello.cpp \
+        commands/cmd_info.cpp \
         commands/cmd_leaderboard.cpp \
+        commands/cmd_mod.cpp \
         commands/cmd_rank.cpp \
         commands/cmd_settings.cpp \
         dbmanager.cpp \
@@ -37,7 +39,9 @@ HEADERS += \
     commands/cmd_coinflip.h \
     commands/cmd_eight_ball.h \
     commands/cmd_hello.h \
+    commands/cmd_info.h \
     commands/cmd_leaderboard.h \
+    commands/cmd_mod.h \
     commands/cmd_rank.h \
     commands/cmd_settings.h \
     dbmanager.h \
