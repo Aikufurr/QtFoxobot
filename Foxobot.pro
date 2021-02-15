@@ -10,7 +10,9 @@ CONFIG -= app_bundle
 
 SOURCES += \
         client.cpp \
+        commands/cmd_about.cpp \
         commands/cmd_aesthetics.cpp \
+        commands/cmd_avatar.cpp \
         commands/cmd_coinflip.cpp \
         commands/cmd_eight_ball.cpp \
         commands/cmd_hello.cpp \
@@ -29,7 +31,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     client.h \
+    commands/cmd_about.h \
     commands/cmd_aesthetics.h \
+    commands/cmd_avatar.h \
     commands/cmd_coinflip.h \
     commands/cmd_eight_ball.h \
     commands/cmd_hello.h \
