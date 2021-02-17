@@ -39,7 +39,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 }
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -65,7 +65,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 QString description = QString("Successfully %1abled").arg(enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -91,7 +91,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 QString description = QString("Successfully %1abled").arg(enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -117,7 +117,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 QString description = QString("Successfully %1abled").arg(enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -131,22 +131,26 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             }
         } else if (interaction->sub_option == "member_add") {
             QString enabled = interaction->sub_options["enabled"];
-            QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "0" : interaction->sub_options["bots"];
+            QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "-1" : interaction->sub_options["bots"];
             QString old_state = dbManager->setting_get(interaction->guild_id, "logging", "member_add");
 
             if (old_state == "0" && enabled == "0") {
                 client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
             } else if (dbManager->setting_set(interaction->guild_id, "logging", "member_add", enabled)) {
-                dbManager->setting_set(interaction->guild_id, "logging", "member_add-bots", bots_enabled);
+                if (bots_enabled != "-1") {
+                    dbManager->setting_set(interaction->guild_id, "logging", "member_update-bots", bots_enabled);
+                } else {
+                    bots_enabled = dbManager->setting_get(interaction->guild_id, "logging", "member_update-bots");
+                }
                 Client::embed_t embed;
 
                 embed.title = QString("Settings - Logging - Member Add");
 
                 QString description = QString("Successfully %1abled\nBots %2abled").arg(enabled == "0" ? "dis" : "en",
-                                                                                       bots_enabled == "0" ? "dis" : "en");
+                                                                                        bots_enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -160,22 +164,33 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             }
         } else if (interaction->sub_option == "member_update") {
             QString enabled = interaction->sub_options["enabled"];
-            QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "0" : interaction->sub_options["bots"];
+            QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "-1" : interaction->sub_options["bots"];
+            QString roles_enabled = interaction->sub_options["roles"].isEmpty() ? "-1" : interaction->sub_options["roles"];
             QString old_state = dbManager->setting_get(interaction->guild_id, "logging", "member_update");
 
             if (old_state == "0" && enabled == "0") {
                 client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
             } else if (dbManager->setting_set(interaction->guild_id, "logging", "member_update", enabled)) {
-                dbManager->setting_set(interaction->guild_id, "logging", "member_update-bots", bots_enabled);
+                if (bots_enabled != "-1") {
+                    dbManager->setting_set(interaction->guild_id, "logging", "member_update-bots", bots_enabled);
+                } else {
+                    bots_enabled = dbManager->setting_get(interaction->guild_id, "logging", "member_update-bots");
+                }
+                if (roles_enabled != "-1") {
+                    dbManager->setting_set(interaction->guild_id, "logging", "member_update-roles", roles_enabled);
+                } else {
+                    roles_enabled = dbManager->setting_get(interaction->guild_id, "logging", "member_update-roles");
+                }
                 Client::embed_t embed;
 
                 embed.title = QString("Settings - Logging - Member Update");
 
-                QString description = QString("Successfully %1abled\nBots %2abled").arg(enabled == "0" ? "dis" : "en",
-                                                                                       bots_enabled == "0" ? "dis" : "en");
+                QString description = QString("Successfully %1abled\nRoles %2abled\nBots %3abled").arg(enabled == "0" ? "dis" : "en",
+                                                                                                       roles_enabled == "0" ? "dis" : "en",
+                                                                                                       bots_enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -189,22 +204,26 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
             }
         } else if (interaction->sub_option == "member_remove") {
             QString enabled = interaction->sub_options["enabled"];
-            QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "0" : interaction->sub_options["bots"];
+            QString bots_enabled = interaction->sub_options["bots"].isEmpty() ? "-1" : interaction->sub_options["bots"];
             QString old_state = dbManager->setting_get(interaction->guild_id, "logging", "member_remove");
 
             if (old_state == "0" && enabled == "0") {
                 client->send_message(interaction->channel_id, QString("<@%1>, Not currently enabled.").arg(interaction->member.user.id));
             } else if (dbManager->setting_set(interaction->guild_id, "logging", "member_remove", enabled)) {
-                dbManager->setting_set(interaction->guild_id, "logging", "member_remove-bots", bots_enabled);
+                if (bots_enabled != "-1") {
+                    dbManager->setting_set(interaction->guild_id, "logging", "member_update-bots", bots_enabled);
+                } else {
+                    bots_enabled = dbManager->setting_get(interaction->guild_id, "logging", "member_update-bots");
+                }
                 Client::embed_t embed;
 
                 embed.title = QString("Settings - Logging - Member Remove");
 
                 QString description = QString("Successfully %1abled\nBots %2abled").arg(enabled == "0" ? "dis" : "en",
-                                                                                       bots_enabled == "0" ? "dis" : "en");
+                                                                                        bots_enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {
@@ -230,7 +249,7 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 QString description = QString("Successfully %1abled").arg(enabled == "0" ? "dis" : "en");
 
                 embed.description = description;
-                embed.colour = 16757760; // FFB400 - Orange
+                embed.colour = -1; // FFB400 - Orange
 
                 embed.author.name = interaction->member.user.username;
                 if (interaction->member.user.avatar.isNull()) {

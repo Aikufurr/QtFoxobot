@@ -190,6 +190,7 @@ public:
         QDateTime joined_at;
         bool large;
         int member_count;
+        int approximate_member_count;
         QHash<QString, member_t> members;    // STRUCT
         QHash<QString, channel_t> channels;  // STRUCT
         int max_members;

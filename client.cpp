@@ -499,11 +499,10 @@ void Client::create_guild(QJsonObject json_guild) {
     guild.explicit_content_filter = json_guild["explicit_content_filter"].toInt();
     guild.mfa_level = json_guild["mfa_level"].toInt();
     guild.large = json_guild["large"].toBool();
-    guild.member_count = json_guild["member_count"].toInt(); // get members
+    guild.member_count = json_guild["member_count"].toInt(); // subject to change
+    guild.approximate_member_count = json_guild["approximate_member_count"].toInt() == 0 ? guild.member_count : json_guild["approximate_member_count"].toInt(); // Static
     guild.max_members = json_guild["max_members"].toInt();
     guild.description = json_guild["description"].toString().isNull() ? "" : json_guild["description"].toString();
-
-
 
     QList<Client::roles_t> roles;
     foreach(const QJsonValue &value, json_guild["roles"].toArray()) {
@@ -648,6 +647,7 @@ Client::guild_t Client::getGuild(QString guild_id) {
         QJsonObject json_guild = jsonResponse.object();
 
         json_guild["member_count"] = json_guild["approximate_member_count"].toInt();
+        json_guild["approximate_member_count"] = json_guild["approximate_member_count"].toInt();
 
         this->create_guild(json_guild);
 
@@ -1107,6 +1107,7 @@ void Client::GUILD_MEMBER_ADD(QJsonObject json_member) {
     Client::guild_t guild = this->getGuild(json_member["guild_id"].toString());
     guild.members[user.id] = new_member;
     guild.member_count = guild.members.size();
+    guild.approximate_member_count++;
     guilds[guild.id] = guild;
 
     QString channel_id = dbmanager->setting_get(guild.id, "logging", "bind");
@@ -1119,10 +1120,10 @@ void Client::GUILD_MEMBER_ADD(QJsonObject json_member) {
 
     embed.title = QString("Logging - Member Add");
 
-    QString description = QString("<@%1> joined as the %2%3 member.").arg(user.id, QString::number(guild.member_count),
-                                                                          (QString::number(guild.member_count).endsWith("1") && guild.member_count != 11) ? "st" :
-                                                                                                                                                            (QString::number(guild.member_count).endsWith("2") && guild.member_count != 12) ? "nd" :
-                                                                                                                                                                                                                                              (QString::number(guild.member_count).endsWith("3") && guild.member_count != 13) ? "rd" : "th");
+    QString description = QString("<@%1> joined as the %2%3 member.").arg(user.id, QString::number(guild.approximate_member_count),
+                                                                          (QString::number(guild.approximate_member_count).endsWith("1") && guild.approximate_member_count != 11) ? "st" :
+                                                                                                                                                            (QString::number(guild.approximate_member_count).endsWith("2") && guild.approximate_member_count != 12) ? "nd" :
+                                                                                                                                                                                                                                              (QString::number(guild.approximate_member_count).endsWith("3") && guild.approximate_member_count != 13) ? "rd" : "th");
     // End
     quint64 snowflake = QString(user.id).toULongLong();
 
@@ -1193,6 +1194,7 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
     if (channel_id == "" || enabled == "0" || enabled == "" || (user.bot == true && dbmanager->setting_get(guild.id, "logging", "member_add-bots") == "0")) {
         return;
     }
+    QString roles_enabled = dbmanager->setting_get(guild.id, "logging", "member_update-roles");
 
     Client::embed_t embed;
 
@@ -1218,7 +1220,7 @@ void Client::GUILD_MEMBER_UPDATE(QJsonObject json_member) {
         embed.fields.push_back(field);
     }
 
-    if (old_member.roles.size() != new_member.roles.size()) {
+    if ((old_member.roles.size() != new_member.roles.size()) && roles_enabled == "1") {
         Client::embed_field_t field;
         field.name = QString("%1 Role").arg(old_member.roles.size() < new_member.roles.size() ? "New" : "Removed");
 
@@ -1280,6 +1282,7 @@ void Client::GUILD_MEMBER_REMOVE(QJsonObject json_member) {
 
     guild.members.remove(old_member.user.id); // or .erase idk which one to use
     guild.member_count = guild.members.size();
+    guild.approximate_member_count--;
     guilds[guild.id] = guild;
 
     QString channel_id = dbmanager->setting_get(guild.id, "logging", "bind");

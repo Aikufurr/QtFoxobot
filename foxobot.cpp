@@ -381,6 +381,14 @@ void foxobot::create_slash_commands() {
                 }
                 {
                     QJsonObject sub_cmd_option;
+                    sub_cmd_option.insert("name", "roles");
+                    sub_cmd_option.insert("description", "Should this fire for role changes");
+                    sub_cmd_option.insert("required", false);
+                    sub_cmd_option.insert("type", applicationCommandOptionType::BOOLEAN);
+                    sub_cmd_options_options.push_back(sub_cmd_option);
+                }
+                {
+                    QJsonObject sub_cmd_option;
                     sub_cmd_option.insert("name", "bots");
                     sub_cmd_option.insert("description", "Should bots be counted");
                     sub_cmd_option.insert("required", false);
