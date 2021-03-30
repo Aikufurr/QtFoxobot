@@ -1,10 +1,9 @@
 #include "cmd_avatar.h"
 
-cmd_avatar::cmd_avatar(Client *client, Client::interaction_t *interaction)
-{
+cmd_avatar::cmd_avatar(Client *client, Client::interaction_t *interaction) {
     Client::member_t member;
     if (interaction->options.size() > 0) {
-        member = client->getMember(interaction->options["user"], interaction->guild_id);
+        member = client->member_get(interaction->options["user"], interaction->guild_id);
     } else {
         member = interaction->member;
     }
@@ -19,11 +18,6 @@ cmd_avatar::cmd_avatar(Client *client, Client::interaction_t *interaction)
         embed.image_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(member.user.id, member.user.avatar);
     }
 
-    embed.author.name = QString("%1").arg(interaction->member.user.username);
-    if (interaction->member.user.avatar.isNull()) {
-        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-    } else {
-        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
-    }
-    client->send_message(interaction->channel_id, "", embed);
+    client->webhook_edit_message(interaction->token, "", embed);
+    emit quit();
 }

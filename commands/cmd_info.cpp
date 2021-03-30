@@ -4,7 +4,7 @@ cmd_info::cmd_info(Client *client, Client::interaction_t *interaction) {
     Client::member_t member;
 
     if (interaction->options.size() > 0) {
-        member = client->getMember(interaction->options["user"], interaction->guild_id);
+        member = client->member_get(interaction->options["user"], interaction->guild_id);
     } else {
         member = interaction->member;
     }
@@ -59,9 +59,9 @@ cmd_info::cmd_info(Client *client, Client::interaction_t *interaction) {
         field.name = "Account created";
         field.value = then.toString(Qt::ISODate).replace("T", " ");
         if (member.joined_at.daysTo(now) == 0) {
-            field.value += QString("\n%1 ago").arg(client->getTime(then, now));
+            field.value += QString("\n%1 ago").arg(client->get_time(then, now));
         } else {
-            field.value += QString("\n%1 ago").arg(client->getAge(then.date(), now.date()));
+            field.value += QString("\n%1 ago").arg(client->get_age(then.date(), now.date()));
         }
         embed.fields.push_back(field);
     }
@@ -75,18 +75,13 @@ cmd_info::cmd_info(Client *client, Client::interaction_t *interaction) {
         field.name = "Joined the guild";
         field.value = member.joined_at.toString(Qt::ISODate).replace("T", " ");
         if (member.joined_at.daysTo(now) == 0) {
-            field.value += QString("\n%1 ago").arg(client->getTime(member.joined_at, now));
+            field.value += QString("\n%1 ago").arg(client->get_time(member.joined_at, now));
         } else {
-            field.value += QString("\n%1 ago").arg(client->getAge(member.joined_at.date(), now.date()));
+            field.value += QString("\n%1 ago").arg(client->get_age(member.joined_at.date(), now.date()));
         }
         embed.fields.push_back(field);
     }
 
-    embed.author.name = QString("%1").arg(interaction->member.user.username);
-    if (interaction->member.user.avatar.isNull()) {
-        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-    } else {
-        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
-    }
-    client->send_message(interaction->channel_id, "", embed);
+    client->webhook_edit_message(interaction->token, "", embed);
+    emit quit();
 }

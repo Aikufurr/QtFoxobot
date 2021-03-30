@@ -328,3 +328,10 @@ QJsonArray DbManager::rank_leaderboard(QString guildID, int results) {
 
     return leaderboard;
 }
+
+
+void DbManager::rank_reset() {
+    QSqlQuery query = QSqlQuery(m_db);
+    query.prepare("UPDATE `ranks` SET `RANK` = 0");
+    query.exec();
+}

@@ -21,9 +21,16 @@ SOURCES += \
         commands/cmd_mod.cpp \
         commands/cmd_rank.cpp \
         commands/cmd_settings.cpp \
+        commands/cmd_tictactoe.cpp \
         dbmanager.cpp \
         foxobot.cpp \
+        http/apirequest.cpp \
+        http/asyncqueue.cpp \
+        http/requesthandler.cpp \
+        http/restmanager.cpp \
         main.cpp \
+        util/rankreset.cpp \
+        util/util.cpp \
         websocket.cpp
 
 # Default rules for deployment.
@@ -44,6 +51,13 @@ HEADERS += \
     commands/cmd_mod.h \
     commands/cmd_rank.h \
     commands/cmd_settings.h \
+    commands/cmd_tictactoe.h \
     dbmanager.h \
     foxobot.h \
+    http/apirequest.h \
+    http/asyncqueue.h \
+    http/requesthandler.h \
+    http/restmanager.h \
+    util/rankreset.h \
+    util/util.h \
     websocket.h

@@ -1,7 +1,6 @@
 #ifndef WEBSOCKET_H
 #define WEBSOCKET_H
 
-
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -71,6 +70,7 @@ signals:
     void MESSAGE_CREATE(QJsonObject);
     void MESSAGE_UPDATE(QJsonObject);
     void MESSAGE_DELETE(QJsonObject);
+    void MESSAGE_REACTION_ADD(QJsonObject);
 };
 
 #endif // WEBSOCKET_H

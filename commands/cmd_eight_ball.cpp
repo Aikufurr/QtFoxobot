@@ -13,5 +13,6 @@ cmd_eight_ball::cmd_eight_ball(Client *client, Client::interaction_t *interactio
     long choice = rand() % outcomes.size();
     QString outcome = outcomes.at(choice);
     qDebug() << choice << seed << outcome;
-    client->send_message(interaction->channel_id, QString("<@%1>, \"%2\" - %3").arg(interaction->member.user.id, interaction->options["question"], outcome));
+    client->webhook_edit_message(interaction->token, QString("<@%1>, \"%2\" - %3").arg(interaction->member.user.id, interaction->options["question"], outcome));
+    emit quit();
 }

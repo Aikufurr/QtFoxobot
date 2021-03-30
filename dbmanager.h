@@ -1,7 +1,6 @@
 #ifndef DBMANAGER_H
 #define DBMANAGER_H
 
-
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -13,8 +12,7 @@
 #include <QSqlRecord>
 #include <QString>
 
-class DbManager
-{
+class DbManager {
 public:
     DbManager(const QString &path);
     QSqlDatabase m_db;
@@ -26,6 +24,7 @@ public:
     int rank_get(QString userID, QString guildID);
     QJsonObject rank_position(QString userID, QString guildID);
     QJsonArray rank_leaderboard(QString guildID, int results);
+    void rank_reset();
 
     QString cmd_id(QString command);
     QJsonObject cmd_get(QString command);

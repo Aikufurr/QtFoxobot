@@ -34,25 +34,25 @@ void Websocket::onSocketConnected() {
 }
 
 void Websocket::resumeGateway() {
-    if (!session_id.isEmpty()) {
-        QJsonObject jObject;
-        jObject.insert("op", opcodes::RESUME);
+    QJsonObject jObject;
+    jObject.insert("op", opcodes::RESUME);
 
-        QJsonObject jObjectD;
-        jObjectD.insert("token", token);
-        jObjectD.insert("session_id", session_id);
-        jObjectD.insert("seq", sequenceNumber);
-        jObject.insert("d", jObjectD);
+    QJsonObject jObjectD;
+    jObjectD.insert("token", token);
+    jObjectD.insert("session_id", session_id);
+    jObjectD.insert("seq", sequenceNumber);
+    jObject.insert("d", jObjectD);
 
-        QJsonDocument jDocument(jObject);
-        qDebug() << "[Send] Opcode 6 RESUME - " << jDocument.toJson(QJsonDocument::Compact);
-        m_webSocket.sendTextMessage(jDocument.toJson(QJsonDocument::Compact));
-    }
+    QJsonDocument jDocument(jObject);
+    qDebug() << "[Send] Opcode 6 RESUME - " << jDocument.toJson(QJsonDocument::Compact);
+    m_webSocket.sendTextMessage(jDocument.toJson(QJsonDocument::Compact));
 }
 void Websocket::onSocketDisconnected() {
     qDebug() << "WebSocket disonnected";
     m_webSocket.close();
-    m_webSocket.open(QUrl("wss://gateway.discord.gg/?v=6&encoding=json"));
+    QTimer::singleShot(5000, this, [&]{
+        m_webSocket.open(QUrl("wss://gateway.discord.gg/?v=6&encoding=json"));
+    });
 }
 
 
@@ -101,8 +101,9 @@ void Websocket::onSocketTextMessageReceived(QString message) {
             emit MESSAGE_UPDATE(payload["d"].toObject());
         } else if (payload["t"].toString() == "MESSAGE_DELETE") {
             emit MESSAGE_DELETE(payload["d"].toObject());
+        } else if (payload["t"].toString() == "MESSAGE_REACTION_ADD") {
+            emit MESSAGE_REACTION_ADD(payload["d"].toObject());
         }
-
         else {
             qDebug() << payload;
         }
@@ -113,7 +114,7 @@ void Websocket::onSocketTextMessageReceived(QString message) {
         if (payload["d"].toBool() == true) {
             resumeGateway();
         } else {
-            QTimer::singleShot((rand() % 5 + 1)*1000, this, SLOT(resumeGateway));
+            QTimer::singleShot((rand() % 5 + 1)*1000, this, SLOT(onSocketDisconnected()));
         }
         break;
     }

@@ -1,7 +1,7 @@
 #include "cmd_leaderboard.h"
 
 cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interaction, DbManager *dbManager) {
-    Client::guild_t guild = client->getGuild(interaction->guild_id);
+    Client::guild_t guild = client->guild_get(interaction->guild_id);
     int amount = 10;
     bool isChart = false;
     if (interaction->options.size() > 0) {
@@ -32,7 +32,7 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
 
     foreach(const QJsonValue &value, leaderboard) {
         QJsonObject result = value.toObject();
-        Client:: member_t member = client->getMember(result["user_id"].toString(), interaction->guild_id);
+        Client:: member_t member = client->member_get(result["user_id"].toString(), interaction->guild_id);
 
         Client::embed_field_t field;
         field.name = QString("Rank %1").arg(QString::number(result["position"].toInt()));
@@ -40,18 +40,13 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
         field.is_inline = false;
         embed.fields.push_back(field);
     }
-    embed.author.name = QString("%1").arg(interaction->member.user.username);
-    if (interaction->member.user.avatar.isNull()) {
-        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-    } else {
-        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
-    }
+
     if (!guild.icon.isNull()) {
         embed.thumbnail_url = QString("https://cdn.discordapp.com/icons/%1/%2.%3").arg(interaction->guild_id, guild.icon, guild.icon.startsWith("a_") ? "gif" : "png");
     }
 
     if (!isChart) {
-        client->send_message(interaction->channel_id, "", embed);
+        client->webhook_edit_message(interaction->token, "", embed);
     } else {
         QLineSeries *series = new QLineSeries();
         series->setPointLabelsVisible(true); // Argument
@@ -87,7 +82,7 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
 
         chart->layout()->setContentsMargins(0, 0, 0, 0);
         chart->setBackgroundBrush(Qt::transparent);
-        QString g_name = client->getGuild(interaction->guild_id).name;
+        QString g_name = guild.name;
         chart->setTitle(QString("<b>%1'%2 Leaderboard</b>").arg(g_name, g_name.endsWith("s") ? "" : "s"));
         chart->setTitleBrush(QBrush(Qt::white));
 
@@ -112,6 +107,9 @@ cmd_leaderboard::cmd_leaderboard(Client *client, Client::interaction_t *interact
         buffer.open(QIODevice::WriteOnly);
         pix.save(&buffer, "PNG");
 
-        client->send_file_message(interaction->channel_id, file, embed);
+        client->webhook_edit_message(interaction->token, "", embed);
+        client->webhook_followup_message(interaction->token, "", file);
+//        client->webhook_followup_message(interaction->token, "", embed, file);
     }
+    emit quit();
 }

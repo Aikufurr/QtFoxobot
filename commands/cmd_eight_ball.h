@@ -1,13 +1,13 @@
 #ifndef CMD_EIGHT_BALL_H
 #define CMD_EIGHT_BALL_H
 
-#include <QObject>
 #include "client.h"
 #include <QList>
+#include <QObject>
 
-class cmd_eight_ball : public QObject
-{
+class cmd_eight_ball : public QObject {
     Q_OBJECT
+
 public:
     cmd_eight_ball(Client *client, Client::interaction_t *interaction);
 
@@ -28,6 +28,9 @@ private:
         "Outlook not so good",
         "Very doubtful"
     };
+
+signals:
+    void quit();
 };
 
 #endif // CMD_EIGHT_BALL_H

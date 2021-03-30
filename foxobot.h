@@ -3,13 +3,14 @@
 
 #include "client.h"
 #include "dbmanager.h"
-
-#include <QObject>
+#include "util/rankreset.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QList>
+#include <QObject>
 #include <QString>
+#include <QThread>
 
 class foxobot : public QObject {
     Q_OBJECT
@@ -27,7 +28,7 @@ private:
 
 private slots:
     void ready(QString name);
-    void message_create(Client::message_t *message);
+    void message(Client::message_t *message);
     void interaction_create(Client::interaction_t *interaction);
 };
 

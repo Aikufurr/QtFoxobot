@@ -1,9 +1,14 @@
 #include "cmd_settings.h"
 
 cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, DbManager *dbManager) {
-    if ((interaction->member.permissions.toUInt() & 0x8) == 0) {
-        client->send_message(interaction->channel_id, QString("<@%1>, Sorry, you need to be an administrator to use this command.").arg(interaction->member.user.id));
+    if ((interaction->member.permissions.toLongLong() & 0x8) == 0) {
+        client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, you need to be an administrator to use this command.").arg(interaction->member.user.id));
         return;
+    }
+
+    QString bind_channel_id = dbManager->setting_get(interaction->guild_id, "logging", "bind");
+    if (bind_channel_id.isEmpty()) {
+        bind_channel_id = interaction->channel_id;
     }
 
     if (interaction->sub_group == "logging") {
@@ -41,15 +46,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "message_update") {
             QString enabled = interaction->sub_options["enabled"];
@@ -67,15 +74,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "message_delete") {
             QString enabled = interaction->sub_options["enabled"];
@@ -93,15 +102,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "message_purge") {
             QString enabled = interaction->sub_options["enabled"];
@@ -119,15 +130,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "member_add") {
             QString enabled = interaction->sub_options["enabled"];
@@ -152,15 +165,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "member_update") {
             QString enabled = interaction->sub_options["enabled"];
@@ -192,15 +207,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "member_remove") {
             QString enabled = interaction->sub_options["enabled"];
@@ -225,15 +242,17 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         } else if (interaction->sub_option == "interaction") {
             QString enabled = interaction->sub_options["enabled"];
@@ -251,16 +270,20 @@ cmd_settings::cmd_settings(Client *client, Client::interaction_t *interaction, D
                 embed.description = description;
                 embed.colour = -1; // FFB400 - Orange
 
-                embed.author.name = interaction->member.user.username;
-                if (interaction->member.user.avatar.isNull()) {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
-                } else {
-                    embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                if (interaction->channel_id != bind_channel_id) {
+                    embed.author.name = interaction->member.user.username;
+                    if (interaction->member.user.avatar.isNull()) {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/embed/avatars/%1.png").arg(QString::number(interaction->member.user.discriminator.toInt() % 5));
+                    } else {
+                        embed.author.icon_url = QString("https://cdn.discordapp.com/avatars/%1/%2.png").arg(interaction->member.user.id, interaction->member.user.avatar);
+                    }
                 }
-                client->send_message(interaction->channel_id, "", embed); // TODO - Send embed in selected channel showing what events will be logged (if not in that channel already)
+                client->webhook_edit_message(interaction->token, "", embed);
             } else {
-                client->send_message(interaction->channel_id, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
+                client->webhook_edit_message(interaction->token, QString("<@%1>, Sorry, there was an error is preforming this action. Please try again later or contact the developer.").arg(interaction->member.user.id));
             }
         }
     }
+
+    emit quit();
 }
