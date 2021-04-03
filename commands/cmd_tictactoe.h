@@ -29,6 +29,7 @@ private:
     QPair<int, int> nextTurn();
     int minimax(bool maximizing_player, int depth);
     QPair<int, int> bestMove(int depth);
+    void edit_msg(Client::embed_t embed);
 
 private slots:
     void message_reaction_add(Client::reaction_t reaction);

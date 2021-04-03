@@ -316,21 +316,19 @@ void cmd_tictactoe::message_reaction_add(Client::reaction_t reaction) {
                     embed.footer.text = "Unknown game state";
                 }
                 client->message_reaction_delete_all(interaction.channel_id, msg.id);
-                emit quit();
             }
         }
-        if (!won) {
+        if (won) {
+            this->edit_msg(embed);
+        } else {
             QPair<int, int> move;
             if (interaction.sub_group == "easy") {
                 move = nextTurn();
-            }
-            if (interaction.sub_group == "medium") {
+            } else if (interaction.sub_group == "medium") {
                 move = bestMove(1);
-            }
-            if (interaction.sub_group == "hard") {
+            } else if (interaction.sub_group == "hard") {
                 move = bestMove(2);
-            }
-            if (interaction.sub_group == "expert") {
+            } else if (interaction.sub_group == "expert") {
                 move = bestMove(-1);
             }
             if (!(move.first == -1 || move.second == -1)) {
@@ -339,6 +337,7 @@ void cmd_tictactoe::message_reaction_add(Client::reaction_t reaction) {
             QString result = checkWinner();
             if (result == "") {
                 embed.footer.text = "Game will end in 60s of no activity";
+                this->edit_msg(embed);
             } else {
                 timeout->stop();
                 if (result == player) {
@@ -351,18 +350,21 @@ void cmd_tictactoe::message_reaction_add(Client::reaction_t reaction) {
                     embed.footer.text = "Unknown game state";
                 }
                 client->message_reaction_delete_all(interaction.channel_id, msg.id);
+                this->edit_msg(embed);
                 emit quit();
             }
         }
-
-        embed.title = QString("%1'%2 %3 Tic Tac Toe Game").arg(interaction.member.nick.isEmpty() ? interaction.member.user.username : interaction.member.nick, (interaction.member.nick.isEmpty() ? interaction.member.user.username : interaction.member.nick).endsWith("s") ? "" : "s", QString("%1%2").arg(interaction.sub_group[0].toUpper(), interaction.sub_group.mid(1)));
-        embed.colour = -1;
-
-        embed.description = QString("%1%2%3").arg(matrix[0][0], matrix[0][1], matrix[0][2]);
-        embed.description += QString("\n%1%2%3").arg(matrix[1][0], matrix[1][1], matrix[1][2]);
-        embed.description += QString("\n%1%2%3").arg(matrix[2][0], matrix[2][1], matrix[2][2]);
-
-        msg = client->webhook_edit_message(interaction.token, "", embed, msg.id);
-        timeout->start(60000);
     }
+}
+
+void cmd_tictactoe::edit_msg(Client::embed_t embed) {
+    embed.title = QString("%1'%2 %3 Tic Tac Toe Game").arg(interaction.member.nick.isEmpty() ? interaction.member.user.username : interaction.member.nick, (interaction.member.nick.isEmpty() ? interaction.member.user.username : interaction.member.nick).endsWith("s") ? "" : "s", QString("%1%2").arg(interaction.sub_group[0].toUpper(), interaction.sub_group.mid(1)));
+    embed.colour = -1;
+
+    embed.description = QString("%1%2%3").arg(matrix[0][0], matrix[0][1], matrix[0][2]);
+    embed.description += QString("\n%1%2%3").arg(matrix[1][0], matrix[1][1], matrix[1][2]);
+    embed.description += QString("\n%1%2%3").arg(matrix[2][0], matrix[2][1], matrix[2][2]);
+
+    msg = client->webhook_edit_message(interaction.token, "", embed, msg.id);
+    timeout->start(60000);
 }
